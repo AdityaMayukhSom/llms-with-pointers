@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "pointer-generator-llama"
+version = "0.1.0"
+description = ""
+authors = ["Aditya Mayukh Som <adi.kg2@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+torch = {version = "^2.5.0+cu124", source = "pytorch-gpu"}
+torchaudio = {version = "^2.5.0+cu124", source = "pytorch-gpu"}
+torchvision = {version = "^0.20.0+cu124", source = "pytorch-gpu"}
+datasets = "^3.0.1"
+transformers = "^4.45.2"
+accelerate = "^1.0.1"
+peft = "^0.13.2"
+trl = "^0.11.4"
+bitsandbytes = "^0.44.1"
+wandb = "^0.18.3"
+
+
+[[tool.poetry.source]]
+name = "pytorch-gpu"
+url = "https://download.pytorch.org/whl/cu124"
+priority = "explicit"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
