@@ -15,3 +15,6 @@ from peft.mapping import get_peft_model
 from trl import SFTTrainer
 from trl import setup_chat_format
 from datasets import load_dataset
+
+
+model_name = "NousResearch/Llama-2-7b-chat-hf"
