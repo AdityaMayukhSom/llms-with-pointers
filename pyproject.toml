@@ -10,7 +10,7 @@ authors = ["Aditya Mayukh Som <adi.kg2@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "~3.12"
 torch = { version = "^2.5.0+cu124", source = "pytorch-gpu" }
 torchaudio = { version = "^2.5.0+cu124", source = "pytorch-gpu" }
 torchvision = { version = "^0.20.0+cu124", source = "pytorch-gpu" }
