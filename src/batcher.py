@@ -1,9 +1,9 @@
 from datasets import load_dataset
-from src.args import script_args
+from src.config import ScriptArguments
 
 
-def training_batch_generator():
-    ds = load_dataset(script_args.dataset_name, streaming=True, split="train")
+def training_batch_generator(config: ScriptArguments):
+    ds = load_dataset(path=config.dataset_name, streaming=True, split="train")
 
     for sample in iter(ds):
         # Extract instructions and inputs from the samples
