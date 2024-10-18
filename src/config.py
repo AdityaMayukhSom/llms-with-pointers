@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
 from typing import Literal, Optional
-from transformers import HfArgumentParser
 
 
 @dataclass
@@ -9,6 +8,13 @@ class ScriptArguments:
     These arguments vary depending on how many GPUs you have, what their capacity
     and faetures are and what size of model you want to train.
     """
+
+    mode: Optional[Literal["train", "test", "eval"]] = field(
+        default="train",
+        metadata={
+            "help": "Whether to train, test or eval the model.",
+        },
+    )
 
     per_device_train_batch_size: Optional[int] = field(default=-1)
     per_device_eval_batch_size: Optional[int] = field(default=4)
@@ -162,7 +168,3 @@ class ScriptArguments:
             "wandb",
         ]
     ] = field(default="wandb")
-
-
-__parser = HfArgumentParser(ScriptArguments)
-script_args: ScriptArguments = __parser.parse_args_into_dataclasses()[0]
