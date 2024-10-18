@@ -5,7 +5,7 @@ import wandb
 from datasets import Dataset
 
 from src.config import ScriptArguments
-from batcher import training_batch_generator
+from batcher import get_training_batch_generator
 from model import create_and_prepare_model
 
 from trl import SFTTrainer
@@ -46,7 +46,7 @@ def train(params: ScriptArguments):
     model, peft_config, tokenizer = create_and_prepare_model(params)
     tokenizer.padding_side = "right"
 
-    train_gen = Dataset.from_generator(training_batch_generator)
+    train_gen = Dataset.from_generator(get_training_batch_generator(params))
 
     trainer = SFTTrainer(
         model=model,
