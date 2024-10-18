@@ -1,3 +1,7 @@
+[tool.black]
+line-length = 80
+fast = true
+
 [tool.poetry]
 name = "pointer-generator-llama"
 version = "0.1.0"
@@ -7,9 +11,9 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.12"
-torch = {version = "^2.5.0+cu124", source = "pytorch-gpu"}
-torchaudio = {version = "^2.5.0+cu124", source = "pytorch-gpu"}
-torchvision = {version = "^0.20.0+cu124", source = "pytorch-gpu"}
+torch = { version = "^2.5.0+cu124", source = "pytorch-gpu" }
+torchaudio = { version = "^2.5.0+cu124", source = "pytorch-gpu" }
+torchvision = { version = "^0.20.0+cu124", source = "pytorch-gpu" }
 datasets = "^3.0.1"
 transformers = "^4.45.2"
 accelerate = "^1.0.1"
