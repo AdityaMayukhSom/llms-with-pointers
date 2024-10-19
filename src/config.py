@@ -28,7 +28,7 @@ class ScriptArguments:
     max_seq_length: Optional[int] = field(default=256)
 
     model_name: Optional[str] = field(
-        default="meta-llama/Meta-Llama-3-8B",
+        default="meta-llama/Llama-3.2-3B",
         metadata={
             "help": "The model that you want to train from HuggingFace Hub. E.g. GPT2, BERT, GPT2-XL etc.",
         },
