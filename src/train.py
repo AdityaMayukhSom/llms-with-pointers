@@ -25,7 +25,7 @@ from peft.utils.other import prepare_model_for_kbit_training
 from peft.mapping import get_peft_model
 
 
-def train(params: ScriptArguments):
+def model_train(params: ScriptArguments):
 
     training_arguments = TrainingArguments(
         output_dir=params.output_dir,
