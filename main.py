@@ -5,7 +5,8 @@ import huggingface_hub
 from dotenv import load_dotenv
 
 from transformers import HfArgumentParser
-from src.train import train
+from src.train import model_train
+from src.eval import model_eval
 from src.config import ScriptArguments
 
 load_dotenv()
@@ -19,10 +20,10 @@ if __name__ == "__main__":
 
     match (script_args.mode):
         case "train":
-            train(script_args)
+            model_train(script_args)
         case "test":
             raise NotImplementedError("'test' functionality not yet implemented.")
         case "eval":
-            raise NotImplementedError("'eval' functionality not yet implemented.")
+            model_eval(script_args)
         case _:
             raise NotImplementedError("mode can only be train, text or eval.")
