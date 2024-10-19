@@ -16,7 +16,7 @@ class ScriptArguments:
         },
     )
 
-    per_device_train_batch_size: Optional[int] = field(default=-1)
+    per_device_train_batch_size: Optional[int] = field(default=1)
     per_device_eval_batch_size: Optional[int] = field(default=4)
     gradient_accumulation_steps: Optional[int] = field(default=17)
     learning_rate: Optional[float] = field(default=3e-4)
@@ -112,13 +112,13 @@ class ScriptArguments:
         },
     )
     max_steps: Optional[int] = field(
-        default=1_000_000_000,
+        default=1_000_000,
         metadata={
             "help": "How many optimizer update steps to take.",
         },
     )
     warmup_steps: Optional[int] = field(
-        default=1_000,
+        default=100,
         metadata={
             "help": "Number of steps to do a warmup for.",
         },
