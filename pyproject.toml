@@ -22,6 +22,7 @@ trl = "^0.11.4"
 bitsandbytes = "^0.44.1"
 wandb = "^0.18.3"
 loguru = "^0.7.2"
+python-dotenv = "^1.0.1"
 
 
 [[tool.poetry.source]]
