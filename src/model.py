@@ -1,3 +1,4 @@
+from typing import assert_type
 import torch
 from loguru import logger
 from peft import LoraConfig
@@ -5,7 +6,7 @@ from peft import LoraConfig
 from transformers import BitsAndBytesConfig
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
-
+from transformers import LlamaForCausalLM
 from src.config import ScriptArguments
 
 
@@ -29,7 +30,7 @@ def create_and_prepare_model(config: ScriptArguments):
 
     device_map = {"": 0}
 
-    model = AutoModelForCausalLM.from_pretrained(
+    model: LlamaForCausalLM = AutoModelForCausalLM.from_pretrained(
         pretrained_model_name_or_path=config.model_name,
         # quantization=bnb_config,
         device_map=device_map,
