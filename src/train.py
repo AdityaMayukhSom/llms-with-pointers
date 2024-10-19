@@ -1,14 +1,16 @@
 import os
+from loguru import logger
 import torch
 import wandb
 
 from datasets import Dataset
 
 from src.config import ScriptArguments
-from batcher import get_training_batch_generator
-from model import create_and_prepare_model
+from src.batcher import get_training_batch_generator
+from src.model import create_and_prepare_model
 
 from trl import SFTTrainer
+from trl import SFTConfig
 from trl import setup_chat_format
 
 from transformers import PreTrainedModel
@@ -43,10 +45,13 @@ def train(params: ScriptArguments):
         report_to=params.reports_to,
     )
 
+    logger.info("Creating and Preparing Model For Training.")
     model, peft_config, tokenizer = create_and_prepare_model(params)
-    tokenizer.padding_side = "right"
+    logger.success("Model Successfully Created For Training.")
 
-    train_gen = Dataset.from_generator(get_training_batch_generator(params))
+    logger.info("Creating Dataset Generator.")
+    train_gen = Dataset.from_generator(get_training_batch_generator(tokenizer, params))
+    logger.success("Dataset Generator Successfully Created.")
 
     trainer = SFTTrainer(
         model=model,
