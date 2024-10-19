@@ -24,24 +24,24 @@ class AttentionLogitsProcessor(LogitsProcessor):
 
 
 def model_eval(config: ScriptArguments):
+    # Characterizing Mechanisms for Factual Recall in Language Models
+    # https://arxiv.org/pdf/2310.15910
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model, peft_config, tokenizer = create_and_prepare_model(config)
     prompt = "What is Google?"
     inputs = tokenizer(prompt, return_tensors="pt", padding=True, truncation=True).to(device=device)
     outputs: GenerateDecoderOnlyOutput = model.generate(
         **inputs,
-        max_length=80,
+        max_new_tokens=1,
         num_return_sequences=1,
         output_logits=True,
         output_scores=True,
         output_attentions=True,
         return_dict_in_generate=True,
-        logits_processor=LogitsProcessorList(
-            [
-                AttentionLogitsProcessor(),
-            ]
-        ),
+        logits_processor=LogitsProcessorList([]),
     )
+
+    logger.info(outputs.sequences.shape)
 
     logits = outputs.logits
     attentions = outputs.attentions
