@@ -10,19 +10,6 @@ from transformers import LogitsProcessorList
 from transformers.generation import GenerateDecoderOnlyOutput
 
 
-def project_attention_on_vocab(attention: torch.FloatTensor) -> torch.FloatTensor:
-    return torch.zeros([0, 2])
-
-
-class AttentionLogitsProcessor(LogitsProcessor):
-    def __init__(self):
-        logger.info("Attention Logits Created")
-
-    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor):
-        logger.info("logit modification layer called.")
-        return scores
-
-
 def model_eval(config: ScriptArguments):
     # Characterizing Mechanisms for Factual Recall in Language Models
     # https://arxiv.org/pdf/2310.15910
