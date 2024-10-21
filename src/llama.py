@@ -1,55 +1,20 @@
-from loguru import logger
+from typing import Optional, Union, override
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import torch.distributed as dist
-
-from transformers import LlamaForCausalLM
-from transformers import LogitsProcessor
-from transformers import LogitsProcessorList
-from transformers import StoppingCriteria
-from transformers import StoppingCriteriaList
-
-from transformers.generation import GenerationConfig
+from loguru import logger
+from transformers import (
+    GenerationConfig,
+    LlamaForCausalLM,
+    LogitsProcessorList,
+    StoppingCriteriaList,
+)
+from transformers.generation import (
+    GenerateDecoderOnlyOutput,
+    GenerateEncoderDecoderOutput,
+    GenerationConfig,
+)
 from transformers.generation.streamers import BaseStreamer
-from transformers.generation import GenerateDecoderOnlyOutput
-from transformers.generation import GenerateEncoderDecoderOutput
-
-from typing import Optional
-from typing import Union
-from typing import override
-
-
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.distributed as dist
-import inspect
-import warnings
-from peft import LoraConfig
-from loguru import logger
-
-from typing import List
-from typing import Optional
-from typing import Callable
-
-from transformers import EncoderDecoderCache
-from transformers import DynamicCache
-from transformers import StoppingCriteriaList
-from transformers import LogitsProcessorList
-from transformers import GenerationConfig
-from transformers import BitsAndBytesConfig
-from transformers import AutoModelForCausalLM
-from transformers import AutoTokenizer
-from transformers import LlamaForCausalLM
-from transformers import PreTrainedModel
-from transformers.utils import is_torchdynamo_compiling
-from transformers.generation import GenerateDecoderOnlyOutput
-from transformers.integrations import is_deepspeed_zero3_enabled
-
-from src.config import ScriptArguments
-from src.llama import PointerGeneratorLlamaForCausalLM
 
 
 class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
@@ -238,52 +203,3 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
                 )
         else:
             return input_ids
-
-
-def create_and_prepare_model(config: ScriptArguments):
-    compute_dtype = getattr(torch, config.bnb_4bit_compute_dtype)
-
-    # commented qlora stuff
-    bnb_config = BitsAndBytesConfig(
-        load_in_4bit=config.use_4bit,
-        bnb_4bit_quant_type=config.bnb_4bit_quant_type,
-        bnb_4bit_compute_dtype=compute_dtype,
-        bnb_4bit_use_double_quant=config.use_nested_quant,
-    )
-
-    if torch.cuda.is_available() and compute_dtype == torch.float16 and config.use_4bit:
-        major, _ = torch.cuda.get_device_capability()
-        if major >= 8:
-            logger.info("~" * 120)
-            logger.info("Your GPU supports bfloat16, you can accelerate training with the argument --bf16")
-            logger.info("~" * 120)
-
-    device_map = {"": 0}
-
-    model: LlamaForCausalLM = PointerGeneratorLlamaForCausalLM.from_pretrained(
-        pretrained_model_name_or_path=config.model_name,
-    )
-
-    # model.config.pretrained_tp = 1
-    if model.config.pad_token_id is None:
-        model.config.pad_token_id = model.config.eos_token_id
-
-    peft_config = LoraConfig(
-        lora_alpha=config.lora_alpha,
-        lora_dropout=config.lora_dropout,
-        r=config.lora_r,
-        bias="none",
-        task_type="CAUSAL_LM",
-        target_modules=["q_proj", "k_proj", "v_proj"],
-    )
-
-    tokenizer = AutoTokenizer.from_pretrained(
-        pretrained_model_name_or_path=config.model_name,
-        trust_remote_code=True,
-    )
-
-    tokenizer.padding_side = "right"
-    if tokenizer.pad_token_id is None:
-        tokenizer.pad_token_id = tokenizer.eos_token_id
-
-    return model, peft_config, tokenizer
