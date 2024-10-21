@@ -1,19 +1,21 @@
+import pprint
+
 import torch
 from loguru import logger
-from src.config import ScriptArguments
-from src.model import PointerGeneratorLlama, create_and_prepare_model
-from transformers import LogitsProcessorList
-from transformers import LlamaForCausalLM
+from transformers import LlamaForCausalLM, LogitsProcessorList
 from transformers.generation import GenerateDecoderOnlyOutput
 
+from src.config import ScriptArguments
+from src.dataset import get_dataset
+from src.model import create_and_prepare_model
+from src.transform import batch_transform
 
-def model_eval(config: ScriptArguments):
-    # Characterizing Mechanisms for Factual Recall in Language Models, https://arxiv.org/pdf/2310.15910
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+def model_eval(config: ScriptArguments, device: torch.device):
+    # TODO: FIX Manual Evaluation Code
     prompt = ["What is Google?"]
 
-    model, peft_config, tokenizer = create_and_prepare_model(config)
-    model = model.to(device=device)
+    model, tokenizer, _ = create_and_prepare_model(config, device=device)
     inputs = tokenizer(prompt, return_tensors="pt", padding=True, truncation=True).to(device=device)
     outputs: GenerateDecoderOnlyOutput = model.generate(
         **inputs,
