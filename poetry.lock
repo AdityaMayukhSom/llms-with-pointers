@@ -2468,6 +2468,35 @@ url = "https://download.pytorch.org/whl/cu124"
 reference = "pytorch-gpu"
 
 [[package]]
+name = "torchdata"
+version = "0.8.0"
+description = "Composable data loading modules for PyTorch"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "torchdata-0.8.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:082e27b2acb1768cb6a30ddd2f8d9c68e407164ce207194bf8bfa616d621a801"},
+    {file = "torchdata-0.8.0-cp310-cp310-manylinux1_x86_64.whl", hash = "sha256:44f7875a62f3fab86e2f8e5af92c4929f8f7390aa17bd697fdd0965723bc1e98"},
+    {file = "torchdata-0.8.0-cp310-cp310-win_amd64.whl", hash = "sha256:07e985d69c5692dda9181a8ef3e14c7f08b0460226f7cd4cf1c1bb0e6975700f"},
+    {file = "torchdata-0.8.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:1635cecf4226fec8539c5d06ba764a48c41363ea0bbea09407ab379828527a8b"},
+    {file = "torchdata-0.8.0-cp311-cp311-manylinux1_x86_64.whl", hash = "sha256:2d63d3fdcc68cf912c81709c8704b9cf435ba89bceed41a365e7362eb5740394"},
+    {file = "torchdata-0.8.0-cp311-cp311-win_amd64.whl", hash = "sha256:8db8a7cb946e82983517cff94317f1898128cbfe4f48821d0c3509c0cdafa4c9"},
+    {file = "torchdata-0.8.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:4e3f7efac3d8a4bd4efcb1427869c04043d0a0a019f9aa1eb381bd6c6b321e62"},
+    {file = "torchdata-0.8.0-cp312-cp312-manylinux1_x86_64.whl", hash = "sha256:bb878e243e58526a5b3ac54583f7c029ad643a34ade798800c1878c83f1c36ee"},
+    {file = "torchdata-0.8.0-cp312-cp312-win_amd64.whl", hash = "sha256:7a43fc7e8d3ae2632859f15d5439cd97b83af559fecd8963e5f09e08f93b81e2"},
+    {file = "torchdata-0.8.0-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:a842fadc17016cd18dcc1ae94088a85904cb0e307e2838a630c45423e0d83f46"},
+    {file = "torchdata-0.8.0-cp38-cp38-manylinux1_x86_64.whl", hash = "sha256:dc265a5b10a4a431838918e1a1a76e2930c63f4aaaad6c62182fbe3ea6ea4bbf"},
+    {file = "torchdata-0.8.0-cp38-cp38-win_amd64.whl", hash = "sha256:17b184c6302dfafb1e1da4f4fbd9644a9f56c6bc7633e64982fd5a29e52a5cd0"},
+    {file = "torchdata-0.8.0-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:4dfeb0b01ae9db334b4daf93b4ee9ab1d83215382a80aa293f40f348e263adb8"},
+    {file = "torchdata-0.8.0-cp39-cp39-manylinux1_x86_64.whl", hash = "sha256:deb712116bf643b89b368c41bbdee57432eaf2562fe4623dea15a86d47bb81bc"},
+    {file = "torchdata-0.8.0-cp39-cp39-win_amd64.whl", hash = "sha256:68c3195584ba2d13d79e0b5866191af20b06225a4c9771df455baacb21e2082f"},
+]
+
+[package.dependencies]
+requests = "*"
+torch = ">=2"
+urllib3 = ">=1.25"
+
+[[package]]
 name = "torchvision"
 version = "0.20.0+cu124"
 description = "image and video datasets and models for torch deep learning"
@@ -2992,4 +3021,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "~3.12"
-content-hash = "036dab568acd7789ec330910f753f7dbe54bfe540ede782f802cba71d3aa21a4"
+content-hash = "c25430fa185aeb1d59dd18ec9980507d1034b19021fc39f21a97297d447ce7be"
