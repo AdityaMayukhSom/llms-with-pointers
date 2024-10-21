@@ -1,4 +1,5 @@
 import pprint
+from typing import Dict, List
 
 INSTRUCT_PROMPT_TEMPLATE = """
 <|begin_of_text|>
@@ -44,6 +45,10 @@ Summarize this following article:
 """
 
 
-def batch_transform(batch):
+def datapoint_transform(datapoint: Dict[str, str]):
+    return datapoint
+
+
+def batch_transform(batch: Dict[str, List]):
     pprint.pprint(batch)
     return batch
