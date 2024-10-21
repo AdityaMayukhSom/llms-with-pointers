@@ -17,6 +17,7 @@ class ScriptArguments:
     )
 
     per_device_train_batch_size: Optional[int] = field(default=1)
+    per_device_test_batch_size: Optional[int] = field(default=1)
     per_device_eval_batch_size: Optional[int] = field(default=4)
     gradient_accumulation_steps: Optional[int] = field(default=17)
     learning_rate: Optional[float] = field(default=3e-4)
@@ -28,7 +29,7 @@ class ScriptArguments:
     max_seq_length: Optional[int] = field(default=256)
 
     model_name: Optional[str] = field(
-        default="meta-llama/Llama-3.2-3B",
+        default="meta-llama/Llama-3.2-3B-Instruct",
         metadata={
             "help": "The model that you want to train from HuggingFace Hub. E.g. GPT2, BERT, GPT2-XL etc.",
         },
@@ -168,3 +169,26 @@ class ScriptArguments:
             "wandb",
         ]
     ] = field(default="wandb")
+
+    # ~~~~~~~~~~~~~~~~~~~~~~ Generation Configurations ~~~~~~~~~~~~~~~~~~~~~~
+
+    requested_max_words: Optional[int] = field(
+        default=80,
+        metadata={
+            "help": "This number specifies the target word count for the abstract that the model should aim to generate."
+        },
+    )
+
+    max_tokens_to_generate_for_abstract: Optional[int] = field(
+        default=120,
+        metadata={
+            "help": "The maximum number of tokens the model is allowed to generate for the abstract. This value includes special tokens and may exceed the target word count."
+        },
+    )
+
+    repetition_penalty: Optional[float] = field(
+        default=1.2,
+        metadata={
+            "help": "A penalty applied to discourage the model from repeating the same tokens during generation. Values greater than 1.0 increase the penalty."
+        },
+    )
