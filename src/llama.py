@@ -70,8 +70,6 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
             `return_dict_in_generate=True` or a [`~generation.GenerateEncoderDecoderOutput`] if
             `model.config.is_encoder_decoder=True`.
         """
-        logger.success("Inside custom _sample function, hurray...")
-
         # init values
         pad_token_id = generation_config._pad_token_tensor
         output_attentions = generation_config.output_attentions
@@ -101,7 +99,6 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
         batch_size, cur_len = input_ids.shape
         this_peer_finished = False
         unfinished_sequences = torch.ones(batch_size, dtype=torch.long, device=input_ids.device)
-        print(model_kwargs)
         model_kwargs = self._get_initial_cache_position(input_ids, model_kwargs)
 
         while self._has_unfinished_sequences(
