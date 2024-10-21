@@ -3,7 +3,7 @@ import pathlib
 import sys
 
 if __name__ == "__main__":
-    if len(sys.argv < 2):
+    if len(sys.argv) < 2:
         print("please provide the directory in which the files to rename")
         print("usage: python rename.py <absolute_path_to_directory_in_which_files_to_rename>")
         sys.exit(1)
