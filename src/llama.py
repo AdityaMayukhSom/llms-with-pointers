@@ -19,7 +19,6 @@ from transformers.generation.streamers import BaseStreamer
 
 class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
     def __init__(self, *args, **kwargs):
-        logger.info(kwargs)
         super(PointerGeneratorLlamaForCausalLM, self).__init__(*args, **kwargs)
 
     def project_attention_on_vocab(
