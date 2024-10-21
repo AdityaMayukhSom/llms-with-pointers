@@ -1,4 +1,7 @@
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.distributed as dist
 import inspect
 import warnings
 from peft import LoraConfig
@@ -20,6 +23,7 @@ from transformers import LlamaForCausalLM
 from transformers import PreTrainedModel
 from transformers.utils import is_torchdynamo_compiling
 from transformers.generation import GenerateDecoderOnlyOutput
+from transformers.integrations import is_deepspeed_zero3_enabled
 
 from src.config import ScriptArguments
 
@@ -35,7 +39,7 @@ def create_and_prepare_model(config: ScriptArguments):
         bnb_4bit_use_double_quant=config.use_nested_quant,
     )
 
-    if compute_dtype == torch.float16 and config.use_4bit:
+    if torch.cuda.is_available() and compute_dtype == torch.float16 and config.use_4bit:
         major, _ = torch.cuda.get_device_capability()
         if major >= 8:
             logger.info("~" * 120)
@@ -47,8 +51,8 @@ def create_and_prepare_model(config: ScriptArguments):
     model: LlamaForCausalLM = AutoModelForCausalLM.from_pretrained(
         pretrained_model_name_or_path=config.model_name,
         # quantization=bnb_config,
-        device_map=device_map,
-        use_auth_token=True,
+        # device_map=device_map,
+        # use_auth_token=True,
     )
 
     # model.config.pretrained_tp = 1
@@ -76,17 +80,18 @@ def create_and_prepare_model(config: ScriptArguments):
     return model, peft_config, tokenizer
 
 
-class PointerGeneratorLlama(torch.nn.Module):
+class PointerGeneratorLlama(nn.Module):
     def __init__(self, config: ScriptArguments):
-        device_map = {"": 0}
+        super(PointerGeneratorLlama, self).__init__()
+        # device_map = {"": 0}
         self.model: LlamaForCausalLM = AutoModelForCausalLM.from_pretrained(
             pretrained_model_name_or_path=config.model_name,
-            device_map=device_map,
-            use_auth_token=True,
+            # device_map=device_map,
+            # use_auth_token=True,
         )
 
         if self.model.config.pad_token_id is None:
-            self.model.config.pad_token_id = self.config.eos_token_id
+            self.model.config.pad_token_id = self.model.config.eos_token_id
 
         self.tokenizer = AutoTokenizer.from_pretrained(
             pretrained_model_name_or_path=config.model_name,
@@ -163,7 +168,7 @@ class PointerGeneratorLlama(torch.nn.Module):
         decoder_hidden_states = () if (return_dict_in_generate and output_hidden_states) else None
 
         # if model is an encoder-decoder, retrieve encoder attention weights and hidden states
-        if return_dict_in_generate and self.config.is_encoder_decoder:
+        if return_dict_in_generate and self.model.config.is_encoder_decoder:
             encoder_attentions = model_kwargs["encoder_outputs"].get("attentions") if output_attentions else None
             encoder_hidden_states = (
                 model_kwargs["encoder_outputs"].get("hidden_states") if output_hidden_states else None
@@ -173,13 +178,18 @@ class PointerGeneratorLlama(torch.nn.Module):
         batch_size, cur_len = input_ids.shape
         this_peer_finished = False
         unfinished_sequences = torch.ones(batch_size, dtype=torch.long, device=input_ids.device)
-        model_kwargs = self._get_initial_cache_position(input_ids, model_kwargs)
+        logger.info(model_kwargs)
+        model_kwargs = self.model._get_initial_cache_position(input_ids, model_kwargs)
 
-        while self._has_unfinished_sequences(
-            this_peer_finished, synced_gpus, device=input_ids.device, cur_len=cur_len, max_length=max_length
+        while self.model._has_unfinished_sequences(
+            this_peer_finished,
+            synced_gpus,
+            device=input_ids.device,
+            cur_len=cur_len,
+            max_length=max_length,
         ):
             # prepare model inputs
-            model_inputs = self.prepare_inputs_for_generation(input_ids, **model_kwargs)
+            model_inputs = self.model.prepare_inputs_for_generation(input_ids, **model_kwargs)
 
             # prepare variable output controls (note: some models won't accept all output controls)
             model_inputs.update({"output_attentions": output_attentions} if output_attentions else {})
@@ -206,19 +216,21 @@ class PointerGeneratorLlama(torch.nn.Module):
                     raw_logits += (next_token_logits,)
                 if output_attentions:
                     decoder_attentions += (
-                        (outputs.decoder_attentions,) if self.config.is_encoder_decoder else (outputs.attentions,)
+                        (outputs.decoder_attentions,) if self.model.config.is_encoder_decoder else (outputs.attentions,)
                     )
                     if self.config.is_encoder_decoder:
                         cross_attentions += (outputs.cross_attentions,)
 
                 if output_hidden_states:
                     decoder_hidden_states += (
-                        (outputs.decoder_hidden_states,) if self.config.is_encoder_decoder else (outputs.hidden_states,)
+                        (outputs.decoder_hidden_states,)
+                        if self.model.config.is_encoder_decoder
+                        else (outputs.hidden_states,)
                     )
 
             # token selection
             if do_sample:
-                probs = torch.nn.functional.softmax(next_token_scores, dim=-1)
+                probs = F.softmax(next_token_scores, dim=-1)
                 # TODO (joao): this OP throws "skipping cudagraphs due to ['incompatible ops']", find solution
                 next_tokens = torch.multinomial(probs, num_samples=1).squeeze(1)
             else:
@@ -230,7 +242,7 @@ class PointerGeneratorLlama(torch.nn.Module):
 
             # update generated ids, model inputs, and length for next step
             input_ids = torch.cat([input_ids, next_tokens[:, None]], dim=-1)
-            model_kwargs = self._update_model_kwargs_for_generation(
+            model_kwargs = self.model._update_model_kwargs_for_generation(
                 outputs,
                 model_kwargs,
                 is_encoder_decoder=self.config.is_encoder_decoder,
@@ -260,18 +272,26 @@ class PointerGeneratorLlama(torch.nn.Module):
         logits_processor: Optional[LogitsProcessorList] = None,
         stopping_criteria: Optional[StoppingCriteriaList] = None,
         prefix_allowed_tokens_fn: Optional[Callable[[int, torch.Tensor], List[int]]] = None,
-        synced_gpus: bool = True,
+        synced_gpus: Optional[bool] = None,
         assistant_model: Optional[PreTrainedModel] = None,
         negative_prompt_ids: Optional[torch.Tensor] = None,
         negative_prompt_attention_mask: Optional[torch.Tensor] = None,
         **kwargs,
-    ):
+    ) -> GenerateDecoderOnlyOutput:
+        """For documentation, see [`GenerationMixin.generate`] i.e. generate method on LlamaForCausalLM"""
+
         # 1. Handle `generation_config` and kwargs that might update it, and validate the `.generate()` call
-        self._validate_model_class()
-        tokenizer = kwargs.pop("tokenizer", None)  # Pull this out first, we only use it for stopping criteria
-        generation_config, model_kwargs = self._prepare_generation_config(generation_config, **kwargs)
-        self._validate_model_kwargs(model_kwargs.copy())
-        self._validate_assistant(assistant_model)
+        self.model._validate_model_class()
+        generation_config, model_kwargs = self.model._prepare_generation_config(generation_config, **kwargs)
+        self.model._validate_model_kwargs(model_kwargs.copy())
+        self.model._validate_assistant(assistant_model)
+
+        # 2. Set generation parameters if not already defined
+        if synced_gpus is None:
+            if is_deepspeed_zero3_enabled() and dist.get_world_size() > 1:
+                synced_gpus = True
+            else:
+                synced_gpus = False
 
         logits_processor = logits_processor if logits_processor is not None else LogitsProcessorList()
         stopping_criteria = stopping_criteria if stopping_criteria is not None else StoppingCriteriaList()
@@ -281,16 +301,16 @@ class PointerGeneratorLlama(torch.nn.Module):
         kwargs_has_attention_mask = model_kwargs.get("attention_mask", None) is not None
 
         # 3. Define model inputs
-        inputs_tensor, model_input_name, model_kwargs = self._prepare_model_inputs(
+        inputs_tensor, model_input_name, model_kwargs = self.model._prepare_model_inputs(
             inputs, generation_config.bos_token_id, model_kwargs
         )
         batch_size = inputs_tensor.shape[0]
 
         device = inputs_tensor.device
-        self._prepare_special_tokens(generation_config, kwargs_has_attention_mask, device=device)
+        self.model._prepare_special_tokens(generation_config, kwargs_has_attention_mask, device=device)
 
         # decoder-only models must use left-padding for batched generation.
-        if not self.config.is_encoder_decoder and not is_torchdynamo_compiling():
+        if not self.model.config.is_encoder_decoder and not is_torchdynamo_compiling():
             # If `input_ids` was given, check if the last id in any sequence is `pad_token_id`
             # Note: If using, `inputs_embeds` this check does not work, because we want to be more hands-off.
             if (
@@ -307,13 +327,13 @@ class PointerGeneratorLlama(torch.nn.Module):
         # 4. Define other model kwargs
         # decoder-only models with inputs_embeds forwarding must use caching (otherwise we can't detect whether we are
         # generating the first new token or not, and we only want to use the embeddings for the first new token)
-        if not self.config.is_encoder_decoder and model_input_name == "inputs_embeds":
+        if not self.model.config.is_encoder_decoder and model_input_name == "inputs_embeds":
             model_kwargs["use_cache"] = True
         else:
             model_kwargs["use_cache"] = generation_config.use_cache
 
         if not kwargs_has_attention_mask and requires_attention_mask and accepts_attention_mask:
-            model_kwargs["attention_mask"] = self._prepare_attention_mask_for_generation(
+            model_kwargs["attention_mask"] = self.model._prepare_attention_mask_for_generation(
                 inputs_tensor, generation_config._pad_token_tensor, generation_config._eos_token_tensor
             )
         elif kwargs_has_attention_mask:
@@ -321,15 +341,15 @@ class PointerGeneratorLlama(torch.nn.Module):
             if model_input_name == "input_ids" and len(model_kwargs["attention_mask"].shape) > 2:
                 raise ValueError("`attention_mask` passed to `generate` must be 2D.")
 
-        if self.config.is_encoder_decoder and "encoder_outputs" not in model_kwargs:
+        if self.model.config.is_encoder_decoder and "encoder_outputs" not in model_kwargs:
             # if model is encoder decoder encoder_outputs are created and added to `model_kwargs`
             model_kwargs = self._prepare_encoder_decoder_kwargs_for_generation(
                 inputs_tensor, model_kwargs, model_input_name, generation_config
             )
 
         # 5. Prepare `input_ids` which will be used for auto-regressive generation
-        if self.config.is_encoder_decoder:
-            input_ids, model_kwargs = self._prepare_decoder_input_ids_for_generation(
+        if self.model.config.is_encoder_decoder:
+            input_ids, model_kwargs = self.model._prepare_decoder_input_ids_for_generation(
                 batch_size=batch_size,
                 model_input_name=model_input_name,
                 model_kwargs=model_kwargs,
@@ -339,11 +359,15 @@ class PointerGeneratorLlama(torch.nn.Module):
         else:
             input_ids = inputs_tensor if model_input_name == "input_ids" else model_kwargs.pop("input_ids")
 
+        if generation_config.token_healing:
+            input_ids = self.model.heal_tokens(input_ids, self.tokenizer)
+
         # 6. Prepare `max_length` depending on other stopping criteria.
         input_ids_length = input_ids.shape[-1]
         has_default_max_length = kwargs.get("max_length") is None and generation_config.max_length is not None
         has_default_min_length = kwargs.get("min_length") is None and generation_config.min_length is not None
-        generation_config = self._prepare_generated_length(
+
+        generation_config = self.model._prepare_generated_length(
             generation_config=generation_config,
             has_default_max_length=has_default_max_length,
             has_default_min_length=has_default_min_length,
@@ -355,10 +379,10 @@ class PointerGeneratorLlama(torch.nn.Module):
         # If the model supports `num_logits_to_keep` in forward(), set it to 1 to avoid computing the whole
         # logit matrix. This can save a lot of memory during the first forward pass. Note that assisted decoding
         # dynamically overrides this value as it can need more than the last token logits
-        if self._supports_num_logits_to_keep() and "num_logits_to_keep" not in model_kwargs:
+        if self.model._supports_num_logits_to_keep() and "num_logits_to_keep" not in model_kwargs:
             model_kwargs["num_logits_to_keep"] = 1
 
-        self._validate_generated_length(generation_config, input_ids_length, has_default_max_length)
+        self.model._validate_generated_length(generation_config, input_ids_length, has_default_max_length)
 
         # 7. Prepare the cache.
         # - `model_kwargs` may be updated in place with a cache as defined by the parameters in `generation_config`.
@@ -371,29 +395,34 @@ class PointerGeneratorLlama(torch.nn.Module):
         if (
             inputs_tensor.shape[1] != input_ids_length
             and model_input_name == "inputs_embeds"
-            and not self.config.is_encoder_decoder
+            and not self.model.config.is_encoder_decoder
         ):
             max_cache_length += inputs_tensor.shape[1]
-        self._prepare_cache_for_generation(
-            generation_config, model_kwargs, assistant_model, batch_size, max_cache_length, device
+        self.model._prepare_cache_for_generation(
+            generation_config,
+            model_kwargs,
+            assistant_model,
+            batch_size,
+            max_cache_length,
+            device,
         )
 
         # 8. determine generation mode
         generation_mode = generation_config.get_generation_mode(assistant_model)
 
-        if not is_torchdynamo_compiling() and self.device.type != input_ids.device.type:
+        if not is_torchdynamo_compiling() and self.model.device.type != input_ids.device.type:
             warnings.warn(
                 "You are calling .generate() with the `input_ids` being on a device type different"
                 f" than your model's device. `input_ids` is on {input_ids.device.type}, whereas the model"
                 f" is on {self.device.type}. You may experience unexpected behaviors or slower generation."
                 " Please make sure that you have put `input_ids` to the"
-                f" correct device by calling for example input_ids = input_ids.to('{self.device.type}') before"
+                f" correct device by calling for example input_ids = input_ids.to('{self.model.device.type}') before"
                 " running `.generate()`.",
                 UserWarning,
             )
 
         # 9. prepare logits processors and stopping criteria
-        prepared_logits_processor = self._get_logits_processor(
+        prepared_logits_processor = self.model._get_logits_processor(
             generation_config=generation_config,
             input_ids_seq_length=input_ids_length,
             encoder_input_ids=inputs_tensor,
@@ -404,15 +433,19 @@ class PointerGeneratorLlama(torch.nn.Module):
             negative_prompt_ids=negative_prompt_ids,
             negative_prompt_attention_mask=negative_prompt_attention_mask,
         )
-        prepared_stopping_criteria = self._get_stopping_criteria(
-            generation_config=generation_config, stopping_criteria=stopping_criteria, tokenizer=tokenizer, **kwargs
+
+        prepared_stopping_criteria = self.model._get_stopping_criteria(
+            generation_config=generation_config,
+            stopping_criteria=stopping_criteria,
+            tokenizer=self.tokenizer,
+            **kwargs,
         )
 
         # 11. expand input_ids with `num_return_sequences` additional sequences per batch
-        input_ids, model_kwargs = self._expand_inputs_for_generation(
+        input_ids, model_kwargs = self.model._expand_inputs_for_generation(
             input_ids=input_ids,
             expand_size=generation_config.num_return_sequences,
-            is_encoder_decoder=self.config.is_encoder_decoder,
+            is_encoder_decoder=self.model.config.is_encoder_decoder,
             **model_kwargs,
         )
 
@@ -426,29 +459,4 @@ class PointerGeneratorLlama(torch.nn.Module):
             **model_kwargs,
         )
 
-        # Convert to legacy cache format if requested
-        if (
-            generation_config.return_legacy_cache is not False  # Should check for `True` after v4.47
-            and not is_torchdynamo_compiling()
-            and hasattr(result, "past_key_values")
-            and hasattr(result.past_key_values, "to_legacy_cache")
-            and result.past_key_values.to_legacy_cache is not None
-        ):
-            # handle BC (convert by default if he user hasn't passed a cache AND the cache is of the default type)
-            should_convert_cache = generation_config.return_legacy_cache
-            is_user_defined_cache = user_defined_cache is not None
-            is_default_cache_type = type(result.past_key_values) == DynamicCache or (  # noqa E721
-                isinstance(result.past_key_values, EncoderDecoderCache)
-                and type(result.past_key_values.self_attention_cache) == DynamicCache  # noqa E721
-                and type(result.past_key_values.cross_attention_cache) == DynamicCache  # noqa E721
-            )
-            if not is_user_defined_cache and is_default_cache_type:
-                logger.warning_once(
-                    "From v4.47 onwards, when a model cache is to be returned, `generate` will return a `Cache` "
-                    "instance instead by default (as opposed to the legacy tuple of tuples format). If you want to "
-                    "keep returning the legacy format, please set `return_legacy_cache=True`."
-                )
-                should_convert_cache = True
-            if should_convert_cache:
-                result.past_key_values = result.past_key_values.to_legacy_cache()
         return result
