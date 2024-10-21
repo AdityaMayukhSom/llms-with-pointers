@@ -12,6 +12,9 @@ def model_test(config: ScriptArguments, device: torch.device):
     """
     Characterizing Mechanisms for Factual Recall in Language Models.
     `https://arxiv.org/pdf/2310.15910`
+
+    TODO: Handle randomness in dataloader.
+    https://pytorch.org/docs/stable/notes/randomness.html
     """
     model, tokenizer, _ = create_and_prepare_model(config, device=device)
     streamer = TextStreamer(tokenizer)
