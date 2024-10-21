@@ -1,73 +1,68 @@
 import os
-from loguru import logger
-import torch
-import wandb
 
-from datasets import Dataset
+import torch
+from loguru import logger
+from peft.auto import AutoPeftModelForCausalLM
+from peft.mapping import get_peft_model
+from peft.peft_model import PeftModel
+from peft.tuners.lora.config import LoraConfig
+from peft.utils.other import prepare_model_for_kbit_training
+from transformers import (
+    BitsAndBytesConfig,
+    PreTrainedModel,
+    TrainingArguments,
+    pipeline,
+)
+from trl import SFTTrainer
 
 from src.config import ScriptArguments
-from src.batcher import get_training_batch_generator
+from src.dataset import get_dataset
 from src.model import create_and_prepare_model
 
-from trl import SFTTrainer
-from trl import SFTConfig
-from trl import setup_chat_format
 
-from transformers import PreTrainedModel
-from transformers import BitsAndBytesConfig
-from transformers import pipeline
-from transformers import TrainingArguments
-
-from peft.auto import AutoPeftModelForCausalLM
-from peft.tuners.lora.config import LoraConfig
-from peft.peft_model import PeftModel
-from peft.utils.other import prepare_model_for_kbit_training
-from peft.mapping import get_peft_model
-
-
-def model_train(params: ScriptArguments):
+def model_train(config: ScriptArguments, device: torch.device):
 
     training_arguments = TrainingArguments(
-        output_dir=params.output_dir,
-        per_device_train_batch_size=params.per_device_train_batch_size,
-        per_device_eval_batch_size=params.per_device_eval_batch_size,
-        optim=params.optim,
-        save_steps=params.save_steps,
-        logging_steps=params.logging_steps,
-        learning_rate=params.learning_rate,
-        fp16=params.fp16,
-        bf16=params.bf16,
-        max_grad_norm=params.max_grad_norm,
-        max_steps=params.max_steps,
-        warmup_steps=params.warmup_steps,
-        group_by_length=params.group_by_length,
-        lr_scheduler_type=params.lr_scheduler_type,
-        report_to=params.reports_to,
+        output_dir=config.output_dir,
+        per_device_train_batch_size=config.per_device_train_batch_size,
+        per_device_eval_batch_size=config.per_device_eval_batch_size,
+        optim=config.optim,
+        save_steps=config.save_steps,
+        logging_steps=config.logging_steps,
+        learning_rate=config.learning_rate,
+        fp16=config.fp16,
+        bf16=config.bf16,
+        max_grad_norm=config.max_grad_norm,
+        max_steps=config.max_steps,
+        warmup_steps=config.warmup_steps,
+        group_by_length=config.group_by_length,
+        lr_scheduler_type=config.lr_scheduler_type,
+        report_to=config.reports_to,
     )
 
     logger.info("Creating and Preparing Model For Training.")
-    model, peft_config, tokenizer = create_and_prepare_model(params)
+    model, peft_config, tokenizer = create_and_prepare_model(config)
     logger.success("Model Successfully Created For Training.")
 
-    logger.info("Creating Dataset Generator.")
-    train_gen = Dataset.from_generator(get_training_batch_generator(tokenizer, params))
-    logger.success("Dataset Generator Successfully Created.")
+    logger.info("Creating Train Dataset.")
+    train_ds = get_dataset(config)
+    logger.success("Train Dataset Successfully Created.")
 
     trainer = SFTTrainer(
         model=model,
-        train_dataset=train_gen,
+        train_dataset=train_ds,
         peft_config=peft_config,
         dataset_text_field="text",
-        max_seq_length=params.max_seq_length,
+        max_seq_length=config.max_seq_length,
         tokenizer=tokenizer,
         args=training_arguments,
-        packing=params.packing,
+        packing=config.packing,
     )
 
     trainer.train()
 
-    if params.merge_and_push:
-        output_dir = os.path.join(params.output_dir, "final_checkpoints")
+    if config.merge_and_push:
+        output_dir = os.path.join(config.output_dir, "final_checkpoints")
         trainer.model.save_pretrained(output_dir)
 
         # Free memory from mergin weights
@@ -82,5 +77,5 @@ def model_train(params: ScriptArguments):
         )
         model: PreTrainedModel = model.merge_and_unload()
 
-        output_merged_dir = os.path.join(params.output_dir, "final_merged_checkpoints")
+        output_merged_dir = os.path.join(config.output_dir, "final_merged_checkpoints")
         model.save_pretrained(output_merged_dir, safe_serialization=True)
