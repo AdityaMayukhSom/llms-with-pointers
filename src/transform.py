@@ -1,54 +1,53 @@
 import pprint
-from typing import Dict, List
+from typing import Any, Dict, List
 
-INSTRUCT_PROMPT_TEMPLATE = """
+from loguru import logger
+from torch.utils.data._utils.collate import default_collate
+
+from src.dataset import DataPointKeys
+
+INSTRUCT_PROMPT_TEMPLATE = """\
 <|begin_of_text|>
-<|start_header_id|>
-system
-<|end_header_id|>\n\n
-{system_message} 
+<|start_header_id|>system<|end_header_id|>
+{system_message}
 <|eot_id|>
-<|start_header_id|>
-user
-<|end_header_id|>\n\n 
-{prompt}
+<|start_header_id|>user<|end_header_id|>
+{user_message}
 <|eot_id|>
-<|start_header_id|>
-assistant
-<|end_header_id|>\n\n
-"""
+<|start_header_id|>assistant<|end_header_id|>"""
 
-SYSTEM_MESSAGE = """
-You are a world class expert in reading lengthy articles and 
-coming up with brief, yet clear and informative summaries.
+SYSTEM_MESSAGE = """\
+You are an expert in reading articles and coming up with brief, yet clear and informative abstracts.
+Only return a generated abstract. Do not provide any explanations or unnecessary words. 
+Do not provide anything which is not necessary or related to the abstract. Just provide the abstract."""
 
-Here is an example:
----
-### Article:
+USER_MESSAGE_TEMPLATE = """\
+Summarize this following article under {max_words} words:
 
-they may be known as masters of disguise , but this little owl could n't conceal his jealousy as he desperately tried to interrupt a brotherly cuddle between his two siblings . as his two siblings settled down to have a rest on their tiny perch , the needy owlet was spotted tactfully creeping along a tree branch before tugging at one of his brother 's wing . the little owl 's sibling rivalry then gets the better of him , as he swoops under his sibling 's wing , prompting an amusing game of tug-of-war . the scene was photographed from just six metres away by 48-year-old dean mason who hid away in a camouflaged shelter , known as a hide , in beaconsfield , buckinghamshire . he said : ` the three siblings are doing exactly what siblings do - playing combined with the odd argument . ' he added : ` every time i capture something unusual , my heart pounds . i feel such an adrenalin rush whilst at the same time hoping i 've made the right choice of camera settings . ' the birds are small owls , a species which typically measures 22cm tall . the bird was introduced to the uk in the 19th century and is most common in central , southern and south eastern england . perched : a little owl gazes in envy as his two siblings huddle together on a small tree branch in beaconsfield , buckinghamshire . ruffling feathers : as he starts moving towards the pair , the nearer sibling cowers under his brother 's wing , turning his back away from the bird . gentle touch : but the little owl 's sibling rivalry gets the better of him , as he start pulling at his sibling 's wing with one small claw . sibling affection : the bird then creeps closer to his sibling , before slowly pecking at one of their ears . the little owls were photographed by sales manager dean mason , 49 . tug of war : the bird continues to gently pull at his sibling 's wing , prompting an amusing game of tug-of-war . mr mason observed the owls from just six metres away by waiting inside a camouflaged shelter known as a hide . getting in a flap : the determined bird then sneaks under its sibling 's wing . the small owl typically measures 22cm tall . owl get you in the end : the little owl finally decides to dive in head first - much to the visible shock of his siblings .
-
-### Summary:
-
-a little owl was captured trying to join his siblings ' huddle by gently tugging on their wings in beaconsfield , bucks . photos taken by sales manager dean mason , 48 , from bournemouth , from a camouflaged shelter six metres away .
----
-
-Only return a succinct summary.  Do not provide any explanations.
-"""
-
-USER_MESSAGE_TEMPLATE = """
-Summarize this following article:
-
-### Article: {article}
-
-### Summary:
-"""
+{article}"""
 
 
 def datapoint_transform(datapoint: Dict[str, str]):
     return datapoint
 
 
-def batch_transform(batch: Dict[str, List]):
-    pprint.pprint(batch)
-    return batch
+def batch_transform(batch: List[Dict[str, Any]], requested_max_words: int) -> Dict[str, List]:
+    # article_type = type(batch[0][DataPointKeys.ARTICLE]).__name__
+    # logger.info("Type of `article` before transformation {}".format(article_type))
+
+    for elem in batch:
+        elem[DataPointKeys.ARTICLE] = bytes(elem[DataPointKeys.ARTICLE]).decode("utf-8")
+        elem[DataPointKeys.ABSTRACT] = bytes(elem[DataPointKeys.ABSTRACT]).decode("utf-8")
+
+        elem[DataPointKeys.ARTICLE] = INSTRUCT_PROMPT_TEMPLATE.format(
+            system_message=SYSTEM_MESSAGE,
+            user_message=USER_MESSAGE_TEMPLATE.format(
+                article=elem[DataPointKeys.ARTICLE],
+                max_words=requested_max_words,
+            ),
+        )
+
+    # article_type = type(batch[0][DataPointKeys.ARTICLE]).__name__
+    # logger.info("Type of `article` before transformation {}".format(article_type))
+
+    return default_collate(batch)
