@@ -41,7 +41,7 @@ def model_train(config: ScriptArguments, device: torch.device):
     )
 
     logger.info("Creating and Preparing Model For Training.")
-    model, peft_config, tokenizer = create_and_prepare_model(config)
+    model, tokenizer, peft_config = create_and_prepare_model(config)
     logger.success("Model Successfully Created For Training.")
 
     logger.info("Creating Train Dataset.")

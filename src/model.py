@@ -24,9 +24,9 @@ def create_and_prepare_model(config: ScriptArguments, device: Literal["cuda", "c
     if torch.cuda.is_available() and compute_dtype == torch.float16 and config.use_4bit:
         major, _ = torch.cuda.get_device_capability()
         if major >= 8:
-            logger.info("~" * 120)
+            logger.info("~" * 80)
             logger.info("Your GPU supports bfloat16, you can accelerate training with the argument --bf16")
-            logger.info("~" * 120)
+            logger.info("~" * 80)
 
     device_map = {"": 0}
 
@@ -64,4 +64,4 @@ def create_and_prepare_model(config: ScriptArguments, device: Literal["cuda", "c
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token_id = tokenizer.eos_token_id
 
-    return model, peft_config, tokenizer
+    return model, tokenizer, peft_config
