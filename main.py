@@ -2,18 +2,24 @@ import os
 import torch
 import huggingface_hub
 
+from loguru import logger
 from dotenv import load_dotenv
-
 from transformers import HfArgumentParser
 
 from src.train import model_train
 from src.eval import model_eval
 from src.config import ScriptArguments
 
-load_dotenv()
-torch.manual_seed(42)
 
 if __name__ == "__main__":
+    load_dotenv()
+    torch.manual_seed(42)
+
+    if torch.cuda.is_available():
+        logger.info("GPU with CUDA available.")
+    else:
+        logger.info("Could not find any CUDA supported device.")
+
     __parser = HfArgumentParser(ScriptArguments)
     script_args: ScriptArguments = __parser.parse_args_into_dataclasses()[0]
 
