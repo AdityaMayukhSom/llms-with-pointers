@@ -1,7 +1,6 @@
 import enum
 from typing import Any, Callable, Dict
 
-from loguru import logger
 from tfrecord.torch.dataset import TFRecordDataset
 from torch.utils.data import IterableDataset
 
@@ -9,7 +8,7 @@ from src.config import ScriptArguments
 
 
 @enum.unique
-class DataPointKeys(enum.StrEnum):
+class DataPointKeys(str, enum.Enum):
     ARTICLE = "article"
     ABSTRACT = "abstract"
 
