@@ -10,7 +10,7 @@ from src.config import ScriptArguments
 from src.llama import PointerGeneratorLlamaForCausalLM
 
 
-def create_and_prepare_model(config: ScriptArguments, device: Literal["cuda", "cpu"]):
+def create_and_prepare_model(config: ScriptArguments, device: torch.device):
     compute_dtype = getattr(torch, config.bnb_4bit_compute_dtype)
 
     # commented qlora stuff
