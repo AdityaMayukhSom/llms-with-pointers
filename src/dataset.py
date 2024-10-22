@@ -77,10 +77,10 @@ def get_dataset(
     transform_fn: Callable[[Dict], Any] | None = None,
 ) -> IterableDataset:
     if not os.path.exists(base_data_directory):
-        raise FileNotFoundError("Path {} does not exist.")
+        raise FileNotFoundError("Path {} does not exist.".format(base_data_directory))
 
-    if not not os.path.isdir(base_data_directory):
-        raise ValueError("Path {} is not a directory.")
+    if not os.path.isdir(base_data_directory):
+        raise ValueError("Path {} is not a directory.".format(base_data_directory))
 
     data_path = os.path.join(base_data_directory, data_filename)
     index_path = os.path.join(base_data_directory, index_filename)
