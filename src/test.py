@@ -3,9 +3,9 @@ from loguru import logger
 from transformers.generation import GenerateDecoderOnlyOutput, TextStreamer
 
 from src.config import ScriptArguments
-from src.dataset import DataPointKeys, get_dataset
+from src.constants import DataPointKeys
+from src.dataset import batch_transform, get_dataset
 from src.model import create_and_prepare_model
-from src.transform import batch_transform
 
 
 def model_test(config: ScriptArguments, device: torch.device):
@@ -16,10 +16,22 @@ def model_test(config: ScriptArguments, device: torch.device):
     TODO: Handle randomness in dataloader.
     https://pytorch.org/docs/stable/notes/randomness.html
     """
-    model, tokenizer, _ = create_and_prepare_model(config, device=device)
-    streamer = TextStreamer(tokenizer)
 
-    test_dataset = get_dataset(config)
+    if config.mode == "test" and config.test_data_dir is None:
+        raise ValueError("Please provide a directory with the test data following the structure outlined in README.md.")
+
+    if config.mode == "test" and config.test_result_dir is None:
+        raise ValueError("Please specify a directory where the test results will be stored.")
+
+    model, tokenizer, _ = create_and_prepare_model(config, device=device)
+    streamer = TextStreamer(tokenizer) if config.do_stream_while_evaluating else None
+
+    test_dataset = get_dataset(
+        data_filename="single/tfrecord/test.tfrecord",
+        index_filename="single/tfindex/test.tfindex",
+        base_data_directory=config.test_data_dir,
+    )
+
     test_loader = torch.utils.data.DataLoader(
         shuffle=False,
         dataset=test_dataset,
@@ -69,10 +81,9 @@ def model_test(config: ScriptArguments, device: torch.device):
             skip_special_tokens=True,
         )
 
-        logger.info("output runtime type: {}".format(type(outputs).__name__))
-        logger.info("output.sequences runtime shape: {}".format(outputs.sequences.shape))
-        logger.info(outputs.sequences[:, inputs["input_ids"].shape[1] :].shape)
-
+        # logger.info("output runtime type: {}".format(type(outputs).__name__))
+        # logger.info("output.sequences runtime shape: {}".format(outputs.sequences.shape))
+        # logger.info(outputs.sequences[:, inputs["input_ids"].shape[1] :].shape)
         # text = tokenizer.decode(outputs.sequences[0], skip_special_tokens=True)
         # print(full_output_texts[0])
         # print("~" * 120)

@@ -21,7 +21,6 @@ from src.model import create_and_prepare_model
 
 
 def model_train(config: ScriptArguments, device: torch.device):
-
     training_arguments = TrainingArguments(
         output_dir=config.output_dir,
         per_device_train_batch_size=config.per_device_train_batch_size,
@@ -41,11 +40,20 @@ def model_train(config: ScriptArguments, device: torch.device):
     )
 
     logger.info("Creating and Preparing Model For Training.")
-    model, tokenizer, peft_config = create_and_prepare_model(config)
+    model, tokenizer, peft_config = create_and_prepare_model(config, device=device)
     logger.success("Model Successfully Created For Training.")
 
     logger.info("Creating Train Dataset.")
-    train_ds = get_dataset(config)
+    train_ds = get_dataset(
+        data_filename="single/tfrecord/train.tfrecord",
+        index_filename="single/tfindex/train.tfindex",
+        base_data_directory=config.train_data_dir,
+    )
+    val_ds = get_dataset(
+        data_filename="single/tfrecord/val.tfrecord",
+        index_filename="single/tfindex/val.tfindex",
+        base_data_directory=config.validation_data_dir,
+    )
     logger.success("Train Dataset Successfully Created.")
 
     trainer = SFTTrainer(
@@ -62,7 +70,7 @@ def model_train(config: ScriptArguments, device: torch.device):
     trainer.train()
 
     if config.merge_and_push:
-        output_dir = os.path.join(config.output_dir, "final_checkpoints")
+        output_dir = os.path.join(config.train_output_dir, "final_checkpoints")
         trainer.model.save_pretrained(output_dir)
 
         # Free memory from mergin weights
