@@ -1,21 +1,19 @@
-import os
-
 import torch
-from loguru import logger
 from transformers.generation import GenerateDecoderOnlyOutput, TextStreamer
 
 from src.config import ScriptArguments
+from src.dataset import extract_user_message, generate_prompt_from_article
 from src.model import create_and_prepare_model
-from src.transform import extract_user_message, generate_prompt_from_article
 
 
 def model_eval(config: ScriptArguments, device: torch.device):
     if config.mode == "eval" and config.source is None:
         raise ValueError("In 'eval' mode, 'source' must be provided.")
 
-    article_filepath = config.article_filepath
-    abstract_filepath = config.abstract_filepath
-    write_abstract_to_file = False
+    article_filepath = config.eval_article_filepath
+    abstract_filepath = config.eval_abstract_filepath
+
+    write_abstract_to_file: bool = False  # whether to write the generated abstract to the config path or not
 
     if config.source == "manual":
         write_abstract_to_file = False
@@ -25,10 +23,10 @@ def model_eval(config: ScriptArguments, device: torch.device):
         write_abstract_to_file = True
 
         if article_filepath is None:
-            article_filepath = input("Enter article file path: ")
+            article_filepath = input("Enter Article File Path: ")
 
         if abstract_filepath is None:
-            abstract_filepath = input("Enter abstract file path: ")
+            abstract_filepath = input("Enter Abstract File Path: ")
 
         with open(article_filepath, "r") as article_file:
             article = article_file.read()
@@ -54,7 +52,7 @@ def model_eval(config: ScriptArguments, device: torch.device):
         output_scores=True,
         output_attentions=True,
         return_dict_in_generate=True,
-        streamer=None if write_abstract_to_file or not config.do_stream else TextStreamer(tokenizer),
+        streamer=None if write_abstract_to_file or not config.do_stream_while_evaluating else TextStreamer(tokenizer),
     )
 
     full_input_texts = tokenizer.batch_decode(

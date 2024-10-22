@@ -1,5 +1,4 @@
 import textwrap
-from typing import Literal
 
 import torch
 from loguru import logger

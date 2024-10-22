@@ -9,8 +9,7 @@ class ScriptArguments:
     and faetures are and what size of model you want to train.
     """
 
-    mode: Optional[Literal["train", "test", "eval"]] = field(
-        default="train",
+    mode: Literal["train", "test", "eval"] = field(
         metadata={
             "help": "Whether to train, test or eval the model.",
         },
@@ -23,24 +22,38 @@ class ScriptArguments:
         },
     )
 
-    article_filepath: Optional[str] = field(
+    eval_article_filepath: Optional[str] = field(
         default=None,
         metadata={
             "help": "Path to the text file containing the article. Optional, used when 'mode' is 'eval' and 'source' is set to 'file'. If not provided upfront, will be asked during program execution."
         },
     )
 
-    abstract_filepath: Optional[str] = field(
+    eval_abstract_filepath: Optional[str] = field(
         default=None,
         metadata={
             "help": "Path to the text file containing the abstract. Optional, used when 'mode' is 'eval' and 'source' is set to 'file'. If not provided upfront, will be asked during program execution."
         },
     )
 
-    do_stream: Optional[bool] = field(
+    do_stream_while_evaluating: Optional[bool] = field(
         default=False,
         metadata={
             "help": "Whether to stream the model's generated output or not. Used only when `mode` is `eval` and `source` is `manual`."
+        },
+    )
+
+    test_data_dir: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "Directory for tfrecords file in the structure specified in README.md, must be provided in `test` mode."
+        },
+    )
+
+    test_result_dir: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "Directory to generate model test results. Must be provided in `test` mode",
         },
     )
 
@@ -176,12 +189,25 @@ class ScriptArguments:
             "help": "Merge and push weights after training.",
         },
     )
-    output_dir: Optional[str] = field(
+    train_output_dir: Optional[str] = field(
         default="./results_packing",
         metadata={
             "help": "The output directory where the model predictions and checkpoints will be written.",
         },
     )
+    train_data_dir: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "Please provide the root directory where training data is kept according to README.md",
+        },
+    )
+    validation_data_dir: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "Please provide the root directory where validation data is kept according to README.md",
+        },
+    )
+
     reports_to: Optional[
         Literal[
             "azure_ml",
