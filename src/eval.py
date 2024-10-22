@@ -54,18 +54,25 @@ def model_eval(config: ScriptArguments, device: torch.device):
         output_scores=True,
         output_attentions=True,
         return_dict_in_generate=True,
-        streamer=None if write_abstract_to_file else TextStreamer(tokenizer),
+        streamer=None if write_abstract_to_file or not config.do_stream else TextStreamer(tokenizer),
     )
 
-    if write_abstract_to_file and abstract_filepath is not None:
-        full_input_texts = tokenizer.batch_decode(
-            inputs["input_ids"],
-            skip_special_tokens=True,
-        )
-        full_output_texts = tokenizer.batch_decode(
-            outputs.sequences,
-            skip_special_tokens=True,
-        )
+    full_input_texts = tokenizer.batch_decode(
+        inputs["input_ids"],
+        skip_special_tokens=True,
+    )
 
+    full_output_texts = tokenizer.batch_decode(
+        outputs.sequences,
+        skip_special_tokens=True,
+    )
+
+    generated_text = full_output_texts[0][len(full_input_texts[0]) :]
+
+    if write_abstract_to_file and abstract_filepath is not None:
         with open(abstract_filepath, "w") as abstract_file:
-            abstract_file.write(full_output_texts[0][len(full_input_texts[0]) :])
+            abstract_file.write(generated_text)
+
+    if not write_abstract_to_file:
+        print("~~~~~~~~ Model Generated Summary ~~~~~~~~\n")
+        print(generated_text)

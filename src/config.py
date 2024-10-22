@@ -37,6 +37,13 @@ class ScriptArguments:
         },
     )
 
+    do_stream: Optional[bool] = field(
+        default=False,
+        metadata={
+            "help": "Whether to stream the model's generated output or not. Used only when `mode` is `eval` and `source` is `manual`."
+        },
+    )
+
     per_device_train_batch_size: Optional[int] = field(default=1)
     per_device_test_batch_size: Optional[int] = field(default=1)
     per_device_eval_batch_size: Optional[int] = field(default=4)
