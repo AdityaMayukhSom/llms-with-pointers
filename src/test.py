@@ -1,4 +1,7 @@
-from concurrent.futures import ThreadPoolExecutor
+import hashlib
+import os
+
+# from concurrent.futures import ThreadPoolExecutor
 from typing import List
 
 import torch
@@ -12,8 +15,6 @@ from src.model import create_and_prepare_model
 
 
 def save_test_results(full_input_texts: List[str], full_output_texts: List[str], result_dir: str):
-    import hashlib
-    import os
 
     for full_input, full_output in zip(full_input_texts, full_output_texts):
         article = extract_user_message(full_input)
@@ -63,7 +64,7 @@ def model_test(config: ScriptArguments, device: torch.device):
         collate_fn=lambda x: batch_transform(x, requested_max_words=config.requested_max_words),
     )
 
-    thread_pool_executor = ThreadPoolExecutor(max_workers=config.max_writer_processes)
+    # thread_pool_executor = ThreadPoolExecutor(max_workers=config.max_writer_processes)
 
     for sample in test_loader:
         articles = sample.get(DataPointKeys.ARTICLE)
@@ -107,12 +108,14 @@ def model_test(config: ScriptArguments, device: torch.device):
             skip_special_tokens=True,
         )
 
-        thread_pool_executor.submit(
-            save_test_results,
-            full_input_texts,
-            full_output_texts,
-            config.test_result_dir,
-        )
+        save_test_results(full_input_texts, full_output_texts, config.test_result_dir)
+
+        # thread_pool_executor.submit(
+        #     save_test_results,
+        #     full_input_texts,
+        #     full_output_texts,
+        #     config.test_result_dir,
+        # )
 
         # logger.info("output runtime type: {}".format(type(outputs).__name__))
         # logger.info("output.sequences runtime shape: {}".format(outputs.sequences.shape))
@@ -121,4 +124,7 @@ def model_test(config: ScriptArguments, device: torch.device):
         # print(full_output_texts[0])
         # print("~" * 120)
 
-    thread_pool_executor.shutdown(wait=True, cancel_futures=False)
+        del inputs
+        del outputs
+
+    # thread_pool_executor.shutdown(wait=True, cancel_futures=False)
