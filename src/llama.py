@@ -1,4 +1,4 @@
-from typing import Optional, Union, override
+from typing import Optional, Union
 
 import torch
 import torch.nn as nn
@@ -28,7 +28,6 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
     ) -> torch.FloatTensor:
         return torch.zeros([0, 2])
 
-    @override
     def _sample(
         self,
         input_ids: torch.LongTensor,
