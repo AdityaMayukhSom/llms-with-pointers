@@ -27,7 +27,12 @@ if __name__ == "__main__":
     __parser = HfArgumentParser(ScriptArguments)
     config: ScriptArguments = __parser.parse_args_into_dataclasses()[0]
 
-    huggingface_hub.login(os.getenv("HF_ACCESS_TOKEN"))
+    huggingface_token = os.getenv("HF_ACCESS_TOKEN")
+
+    if huggingface_token is None:
+        huggingface_token = input("please enter huggingface token manually: ")
+
+    huggingface_hub.login(huggingface_token)
 
     match (config.mode):
         case "train":
