@@ -54,7 +54,7 @@ def model_eval(config: ScriptArguments, device: torch.device):
         output_scores=True,
         output_attentions=True,
         return_dict_in_generate=True,
-        streamer=TextStreamer(tokenizer) if write_abstract_to_file else None,
+        streamer=None if write_abstract_to_file else TextStreamer(tokenizer),
     )
 
     if write_abstract_to_file and abstract_filepath is not None:
