@@ -37,7 +37,7 @@ class ScriptArguments:
     )
 
     max_writer_processes: Optional[int] = field(
-        default=8,
+        default=4,
         metadata={
             "help": "Maximum processes to write results.",
         },
