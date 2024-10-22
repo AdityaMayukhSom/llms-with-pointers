@@ -10,7 +10,7 @@ authors = ["Aditya Mayukh Som <adi.kg2@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "~3.12"
+python = "~3.10"
 torch = { version = "~2.5.0+cu124", source = "pytorch-gpu" }
 torchaudio = { version = "~2.5.0+cu124", source = "pytorch-gpu" }
 torchvision = { version = "~0.20.0+cu124", source = "pytorch-gpu" }
@@ -24,7 +24,7 @@ wandb = "^0.18.3"
 loguru = "^0.7.2"
 python-dotenv = "^1.0.1"
 torchdata = "~0.8.0"
-tfrecord = {extras = ["torch"], version = "^1.14.5"}
+tfrecord = { extras = ["torch"], version = "^1.14.5" }
 
 
 [[tool.poetry.source]]
