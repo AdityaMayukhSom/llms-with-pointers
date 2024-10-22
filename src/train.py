@@ -22,7 +22,7 @@ from src.model import create_and_prepare_model
 
 def model_train(config: ScriptArguments, device: torch.device):
     training_arguments = TrainingArguments(
-        output_dir=config.output_dir,
+        output_dir=config.train_checkpoints_dir,
         per_device_train_batch_size=config.per_device_train_batch_size,
         per_device_eval_batch_size=config.per_device_eval_batch_size,
         optim=config.optim,
@@ -47,12 +47,12 @@ def model_train(config: ScriptArguments, device: torch.device):
     train_ds = get_dataset(
         data_filename="single/tfrecord/train.tfrecord",
         index_filename="single/tfindex/train.tfindex",
-        base_data_directory=config.train_data_dir,
+        base_data_directory=config.data_dir,
     )
     val_ds = get_dataset(
         data_filename="single/tfrecord/val.tfrecord",
         index_filename="single/tfindex/val.tfindex",
-        base_data_directory=config.validation_data_dir,
+        base_data_directory=config.data_dir,
     )
     logger.success("Train Dataset Successfully Created.")
 
@@ -70,7 +70,7 @@ def model_train(config: ScriptArguments, device: torch.device):
     trainer.train()
 
     if config.merge_and_push:
-        output_dir = os.path.join(config.train_output_dir, "final_checkpoints")
+        output_dir = os.path.join(config.train_checkpoints_dir, "final_checkpoints")
         trainer.model.save_pretrained(output_dir)
 
         # Free memory from mergin weights
@@ -85,5 +85,5 @@ def model_train(config: ScriptArguments, device: torch.device):
         )
         model: PreTrainedModel = model.merge_and_unload()
 
-        output_merged_dir = os.path.join(config.output_dir, "final_merged_checkpoints")
+        output_merged_dir = os.path.join(config.train_checkpoints_dir, "final_merged_checkpoints")
         model.save_pretrained(output_merged_dir, safe_serialization=True)

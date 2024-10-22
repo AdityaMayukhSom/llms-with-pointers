@@ -9,13 +9,48 @@ class ScriptArguments:
     and faetures are and what size of model you want to train.
     """
 
+    model_name: Optional[str] = field(
+        default="meta-llama/Llama-3.2-3B-Instruct",
+        metadata={
+            "help": "The model that you want to train from HuggingFace Hub. E.g. GPT2, BERT, GPT2-XL etc.",
+        },
+    )
+
     mode: Literal["train", "test", "eval"] = field(
         metadata={
             "help": "Whether to train, test or eval the model.",
         },
     )
 
-    source: Optional[Literal["manual", "file"]] = field(
+    do_streaming_while_generating: Optional[bool] = field(
+        default=False,
+        metadata={
+            "help": "Whether to stream the model's generated output or not. Used only when `mode` is `eval` and `source` is `manual`."
+        },
+    )
+
+    data_dir: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "Please provide the root directory where training data is kept according to README.md",
+        },
+    )
+
+    train_checkpoints_dir: Optional[str] = field(
+        default="./results_packing",
+        metadata={
+            "help": "The output directory where the model predictions and checkpoints will be written.",
+        },
+    )
+
+    test_result_dir: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "Directory to generate model test results. Must be provided in `test` mode",
+        },
+    )
+
+    eval_source: Optional[Literal["manual", "file"]] = field(
         default=None,
         metadata={
             "help": "Specify the input source for the article. In 'eval' mode, source must be either 'manual' for direct input or 'file' for reading from a text file."
@@ -36,27 +71,6 @@ class ScriptArguments:
         },
     )
 
-    do_stream_while_evaluating: Optional[bool] = field(
-        default=False,
-        metadata={
-            "help": "Whether to stream the model's generated output or not. Used only when `mode` is `eval` and `source` is `manual`."
-        },
-    )
-
-    test_data_dir: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "Directory for tfrecords file in the structure specified in README.md, must be provided in `test` mode."
-        },
-    )
-
-    test_result_dir: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "Directory to generate model test results. Must be provided in `test` mode",
-        },
-    )
-
     per_device_train_batch_size: Optional[int] = field(default=1)
     per_device_test_batch_size: Optional[int] = field(default=1)
     per_device_eval_batch_size: Optional[int] = field(default=4)
@@ -69,23 +83,11 @@ class ScriptArguments:
     lora_r: Optional[int] = field(default=16)
     max_seq_length: Optional[int] = field(default=256)
 
-    model_name: Optional[str] = field(
-        default="meta-llama/Llama-3.2-3B-Instruct",
-        metadata={
-            "help": "The model that you want to train from HuggingFace Hub. E.g. GPT2, BERT, GPT2-XL etc.",
-        },
-    )
-
     local_rank: Optional[int] = field(
         default=-1,
         metadata={
             "help": "Used for Multi GPU.",
         },
-    )
-
-    dataset_name: Optional[str] = field(
-        default="tatsu-lab/alpaca",
-        metadata={"help": "The preferenced dataset to use."},
     )
 
     use_4bit: Optional[bool] = field(
@@ -187,24 +189,6 @@ class ScriptArguments:
         default=False,
         metadata={
             "help": "Merge and push weights after training.",
-        },
-    )
-    train_output_dir: Optional[str] = field(
-        default="./results_packing",
-        metadata={
-            "help": "The output directory where the model predictions and checkpoints will be written.",
-        },
-    )
-    train_data_dir: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "Please provide the root directory where training data is kept according to README.md",
-        },
-    )
-    validation_data_dir: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "Please provide the root directory where validation data is kept according to README.md",
         },
     )
 

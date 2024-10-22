@@ -17,19 +17,19 @@ def model_test(config: ScriptArguments, device: torch.device):
     https://pytorch.org/docs/stable/notes/randomness.html
     """
 
-    if config.mode == "test" and config.test_data_dir is None:
+    if config.mode == "test" and config.data_dir is None:
         raise ValueError("Please provide a directory with the test data following the structure outlined in README.md.")
 
     if config.mode == "test" and config.test_result_dir is None:
         raise ValueError("Please specify a directory where the test results will be stored.")
 
     model, tokenizer, _ = create_and_prepare_model(config, device=device)
-    streamer = TextStreamer(tokenizer) if config.do_stream_while_evaluating else None
+    streamer = TextStreamer(tokenizer) if config.do_streaming_while_generating else None
 
     test_dataset = get_dataset(
         data_filename="single/tfrecord/test.tfrecord",
         index_filename="single/tfindex/test.tfindex",
-        base_data_directory=config.test_data_dir,
+        base_data_directory=config.data_dir,
     )
 
     test_loader = torch.utils.data.DataLoader(

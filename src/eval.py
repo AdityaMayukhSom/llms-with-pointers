@@ -15,11 +15,11 @@ def model_eval(config: ScriptArguments, device: torch.device):
 
     write_abstract_to_file: bool = False  # whether to write the generated abstract to the config path or not
 
-    if config.source == "manual":
+    if config.eval_source == "manual":
         write_abstract_to_file = False
         article = input("Enter Article: ")
 
-    elif config.source == "file":
+    elif config.eval_source == "file":
         write_abstract_to_file = True
 
         if article_filepath is None:
@@ -52,7 +52,9 @@ def model_eval(config: ScriptArguments, device: torch.device):
         output_scores=True,
         output_attentions=True,
         return_dict_in_generate=True,
-        streamer=None if write_abstract_to_file or not config.do_stream_while_evaluating else TextStreamer(tokenizer),
+        streamer=(
+            None if write_abstract_to_file or not config.do_streaming_while_generating else TextStreamer(tokenizer)
+        ),
     )
 
     full_input_texts = tokenizer.batch_decode(
