@@ -6,3 +6,4 @@
 **/results_packing/
 **/wandb/
 **/data/
+**/.mypy_cache/
