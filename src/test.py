@@ -1,4 +1,4 @@
-from concurrent.futures import ProcessPoolExecutor, wait
+from concurrent.futures import ThreadPoolExecutor
 from typing import List
 
 import torch
@@ -63,7 +63,7 @@ def model_test(config: ScriptArguments, device: torch.device):
         collate_fn=lambda x: batch_transform(x, requested_max_words=config.requested_max_words),
     )
 
-    process_pool_executor = ProcessPoolExecutor(max_workers=config.max_writer_processes)
+    thread_pool_executor = ThreadPoolExecutor(max_workers=config.max_writer_processes)
 
     for sample in test_loader:
         articles = sample.get(DataPointKeys.ARTICLE)
@@ -107,7 +107,7 @@ def model_test(config: ScriptArguments, device: torch.device):
             skip_special_tokens=True,
         )
 
-        process_pool_executor.submit(
+        thread_pool_executor.submit(
             save_test_results,
             full_input_texts,
             full_output_texts,
@@ -121,4 +121,4 @@ def model_test(config: ScriptArguments, device: torch.device):
         # print(full_output_texts[0])
         # print("~" * 120)
 
-    process_pool_executor.shutdown(wait=True, cancel_futures=False)
+    thread_pool_executor.shutdown(wait=True, cancel_futures=False)
