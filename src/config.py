@@ -36,6 +36,13 @@ class ScriptArguments:
         },
     )
 
+    max_writer_processes: Optional[int] = field(
+        default=8,
+        metadata={
+            "help": "Maximum processes to write results.",
+        },
+    )
+
     train_checkpoints_dir: Optional[str] = field(
         default="./results_packing",
         metadata={
