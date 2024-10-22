@@ -9,16 +9,16 @@ class ScriptArguments:
     and faetures are and what size of model you want to train.
     """
 
+    mode: Literal["train", "test", "eval"] = field(
+        metadata={
+            "help": "Whether to train, test or eval the model.",
+        },
+    )
+
     model_name: Optional[str] = field(
         default="meta-llama/Llama-3.2-3B-Instruct",
         metadata={
             "help": "The model that you want to train from HuggingFace Hub. E.g. GPT2, BERT, GPT2-XL etc.",
-        },
-    )
-
-    mode: Literal["train", "test", "eval"] = field(
-        metadata={
-            "help": "Whether to train, test or eval the model.",
         },
     )
 
