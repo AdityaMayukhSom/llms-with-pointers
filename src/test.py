@@ -10,8 +10,9 @@ from transformers.generation import GenerateDecoderOnlyOutput, TextStreamer
 
 from src.config import ScriptArguments
 from src.constants import DataPointKeys
-from src.dataset import batch_transform, extract_user_message, get_dataset
+from src.dataset import batch_transform, get_dataset
 from src.model import create_and_prepare_model
+from src.utils import extract_user_message
 
 
 def save_test_results(full_input_texts: List[str], full_output_texts: List[str], result_dir: str):

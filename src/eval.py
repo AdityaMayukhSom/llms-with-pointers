@@ -2,8 +2,9 @@ import torch
 from transformers.generation import GenerateDecoderOnlyOutput, TextStreamer
 
 from src.config import ScriptArguments
-from src.dataset import extract_user_message, generate_prompt_from_article
+from src.dataset import generate_prompt_from_article
 from src.model import create_and_prepare_model
+from src.utils import extract_user_message
 
 
 def model_eval(config: ScriptArguments, device: torch.device):

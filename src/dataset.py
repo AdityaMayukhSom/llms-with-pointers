@@ -1,5 +1,4 @@
 import os
-import re
 from typing import Any, Callable, Dict, List
 
 from tfrecord.torch.dataset import TFRecordDataset
@@ -27,14 +26,6 @@ USER_MESSAGE_TEMPLATE = """\
 Summarize this following article under {max_words} words:
 
 {article}"""
-
-
-def extract_user_message(text: str) -> str:
-    pattern = r"<\|start_header_id\|>user<\|end_header_id\|>(.*?)<\|eot_id\|>"
-    match = re.search(pattern, text, re.DOTALL)
-    if match:
-        return match.group(1).strip()
-    return ""
 
 
 def generate_prompt_from_article(article: str, requested_max_words: int):
@@ -79,7 +70,7 @@ def get_dataset(
     if not os.path.exists(base_data_directory):
         raise FileNotFoundError("Path {} does not exist.".format(base_data_directory))
 
-    if not os.path.isdir(base_data_directory):
+    if not not os.path.isdir(base_data_directory):
         raise ValueError("Path {} is not a directory.".format(base_data_directory))
 
     data_path = os.path.join(base_data_directory, data_filename)
