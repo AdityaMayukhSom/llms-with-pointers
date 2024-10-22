@@ -1,3 +1,4 @@
+import re
 from typing import Any, Dict, List
 
 from torch.utils.data._utils.collate import default_collate
@@ -23,6 +24,14 @@ USER_MESSAGE_TEMPLATE = """\
 Summarize this following article under {max_words} words:
 
 {article}"""
+
+
+def extract_user_message(text: str) -> str:
+    pattern = r"<\|start_header_id\|>user<\|end_header_id\|>(.*?)<\|eot_id\|>"
+    match = re.search(pattern, text, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    return ""
 
 
 def generate_prompt_from_article(article: str, requested_max_words: int):

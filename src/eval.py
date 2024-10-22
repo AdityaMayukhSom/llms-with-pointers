@@ -6,7 +6,7 @@ from transformers.generation import GenerateDecoderOnlyOutput, TextStreamer
 
 from src.config import ScriptArguments
 from src.model import create_and_prepare_model
-from src.transform import generate_prompt_from_article
+from src.transform import extract_user_message, generate_prompt_from_article
 
 
 def model_eval(config: ScriptArguments, device: torch.device):
@@ -67,6 +67,7 @@ def model_eval(config: ScriptArguments, device: torch.device):
         skip_special_tokens=True,
     )
 
+    user_article = extract_user_message(prompt[0])
     generated_text = full_output_texts[0][len(full_input_texts[0]) :]
 
     if write_abstract_to_file and abstract_filepath is not None:
@@ -74,5 +75,7 @@ def model_eval(config: ScriptArguments, device: torch.device):
             abstract_file.write(generated_text)
 
     if not write_abstract_to_file:
-        print("~~~~~~~~ Model Generated Summary ~~~~~~~~\n")
+        print("~~~~~~~~ Article ~~~~~~~~")
+        print(user_article)
+        print("~~~~~~~~ Summary ~~~~~~~~")
         print(generated_text)
