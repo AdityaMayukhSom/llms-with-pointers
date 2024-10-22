@@ -27,6 +27,16 @@ Summarize this following article under {max_words} words:
 {article}"""
 
 
+def generate_prompt_from_article(article: str, requested_max_words: int):
+    return INSTRUCT_PROMPT_TEMPLATE.format(
+        system_message=SYSTEM_MESSAGE,
+        user_message=USER_MESSAGE_TEMPLATE.format(
+            article=article,
+            max_words=requested_max_words,
+        ),
+    )
+
+
 def datapoint_transform(datapoint: Dict[str, str]):
     return datapoint
 
@@ -39,12 +49,9 @@ def batch_transform(batch: List[Dict[str, Any]], requested_max_words: int) -> Di
         elem[DataPointKeys.ARTICLE] = bytes(elem[DataPointKeys.ARTICLE]).decode("utf-8")
         elem[DataPointKeys.ABSTRACT] = bytes(elem[DataPointKeys.ABSTRACT]).decode("utf-8")
 
-        elem[DataPointKeys.ARTICLE] = INSTRUCT_PROMPT_TEMPLATE.format(
-            system_message=SYSTEM_MESSAGE,
-            user_message=USER_MESSAGE_TEMPLATE.format(
-                article=elem[DataPointKeys.ARTICLE],
-                max_words=requested_max_words,
-            ),
+        elem[DataPointKeys.ARTICLE] = generate_prompt_from_article(
+            elem[DataPointKeys.ARTICLE],
+            requested_max_words=requested_max_words,
         )
 
     # article_type = type(batch[0][DataPointKeys.ARTICLE]).__name__

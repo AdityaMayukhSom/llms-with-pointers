@@ -32,6 +32,7 @@ def create_and_prepare_model(config: ScriptArguments, device: Literal["cuda", "c
 
     model = PointerGeneratorLlamaForCausalLM.from_pretrained(
         pretrained_model_name_or_path=config.model_name,
+        quantization_config=bnb_config,
     ).to(device=device)
 
     if not isinstance(model, PointerGeneratorLlamaForCausalLM):

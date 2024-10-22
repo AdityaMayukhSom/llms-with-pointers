@@ -16,6 +16,27 @@ class ScriptArguments:
         },
     )
 
+    source: Optional[Literal["manual", "file"]] = field(
+        default=None,
+        metadata={
+            "help": "Specify the input source for the article. In 'eval' mode, source must be either 'manual' for direct input or 'file' for reading from a text file."
+        },
+    )
+
+    article_filepath: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "Path to the text file containing the article. Optional, used when 'mode' is 'eval' and 'source' is set to 'file'. If not provided upfront, will be asked during program execution."
+        },
+    )
+
+    abstract_filepath: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "Path to the text file containing the abstract. Optional, used when 'mode' is 'eval' and 'source' is set to 'file'. If not provided upfront, will be asked during program execution."
+        },
+    )
+
     per_device_train_batch_size: Optional[int] = field(default=1)
     per_device_test_batch_size: Optional[int] = field(default=1)
     per_device_eval_batch_size: Optional[int] = field(default=4)
