@@ -1,3 +1,5 @@
+import datetime
+import errno
 import hashlib
 import os
 import time
@@ -74,15 +76,25 @@ class TestResultsUtils(ResultsUtils):
         h = hashlib.md5(usedforsecurity=False)
         h.update(article.encode(encoding="utf-8"))
         article_hash = h.hexdigest()
+        current_time = datetime.datetime.now()
 
-        article_filename = "{}_article.txt".format(article_hash)
-        abstract_filename = "{}_abstract.txt".format(article_hash)
+        # `:` cannot be part of a valid file name in NTFS, as it is used as a delimeter for multiple files.
+        # Refer https://stackoverflow.com/questions/54508733/python-3-not-raising-exception-for-invalid-file-name
+        time_str = str(current_time).replace(":", "-").replace(" ", "_")
 
-        with open(os.path.join(self.result_dir, article_filename), "w", encoding="utf-8") as article_file:
-            article_file.write(article)
+        article_filename = f"{time_str}_{article_hash}_article.txt"
+        abstract_filename = f"{time_str}_{article_hash}_abstract.txt"
+        try:
+            with open(os.path.join(self.result_dir, article_filename), "w", encoding="utf-8") as article_file:
+                article_file.write(article)
+        except IOError as e:
+            logger.error(f"ERRNO {e.errno}. {e.strerror}. Could not write ARTICLE file with hash {article_hash}")
 
-        with open(os.path.join(self.result_dir, abstract_filename), "w", encoding="utf-8") as abstract_file:
-            abstract_file.write(abstract)
+        try:
+            with open(os.path.join(self.result_dir, abstract_filename), "w", encoding="utf-8") as abstract_file:
+                abstract_file.write(abstract)
+        except IOError as e:
+            logger.error(f"ERRNO {e.errno}. {e.strerror}. Could not write ABSTRACT file with hash {article_hash}")
 
     def save_result_list(self, articles: List[str], generated_abstracts: List[str]):
         for article, abstract in zip(articles, generated_abstracts):
