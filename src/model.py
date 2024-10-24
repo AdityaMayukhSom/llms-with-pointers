@@ -32,7 +32,8 @@ def create_and_prepare_model(config: ScriptArguments, device: torch.device):
     model = PointerGeneratorLlamaForCausalLM.from_pretrained(
         pretrained_model_name_or_path=config.model_name,
         quantization_config=bnb_config,
-    ).to(device=device)
+        low_cpu_mem_usage=True,
+    )
 
     if not isinstance(model, PointerGeneratorLlamaForCausalLM):
         error_message = f"""
@@ -41,10 +42,6 @@ def create_and_prepare_model(config: ScriptArguments, device: torch.device):
         """
         logger.error(textwrap.dedent(error_message))
         raise ValueError(textwrap.dedent(error_message))
-
-    # model.config.pretrained_tp = 1
-    if model.config.pad_token_id is None:
-        model.config.pad_token_id = model.config.eos_token_id
 
     peft_config = LoraConfig(
         lora_alpha=config.lora_alpha,
@@ -60,8 +57,17 @@ def create_and_prepare_model(config: ScriptArguments, device: torch.device):
         trust_remote_code=True,
     )
 
-    tokenizer.padding_side = "right"
+    # For decoder only models, left padding is used.
+    # Refer: https://discuss.huggingface.co/t/the-effect-of-padding-side/67188
+    tokenizer.padding_side = "left"
+
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token_id = tokenizer.eos_token_id
+
+    model.config.pretraining_tp = 1
+    if model.config.pad_token_id is None:
+        model.config.pad_token_id = tokenizer.eos_token_id
+    if model.generation_config.pad_token_id is None:
+        model.generation_config.pad_token_id = tokenizer.eos_token_id
 
     return model, tokenizer, peft_config
