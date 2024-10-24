@@ -15,14 +15,14 @@ class ScriptArguments:
         },
     )
 
-    model_name: Optional[str] = field(
+    model_name: str = field(
         default="meta-llama/Llama-3.2-3B-Instruct",
         metadata={
             "help": "The model that you want to train from HuggingFace Hub. E.g. GPT2, BERT, GPT2-XL etc.",
         },
     )
 
-    do_streaming_while_generating: Optional[bool] = field(
+    do_streaming_while_generating: bool = field(
         default=False,
         metadata={
             "help": "Whether to stream the model's generated output or not. Used only when `mode` is `eval` and `source` is `manual`."
@@ -43,7 +43,7 @@ class ScriptArguments:
         },
     )
 
-    train_checkpoints_dir: Optional[str] = field(
+    train_checkpoints_dir: str = field(
         default="./results_packing",
         metadata={
             "help": "The output directory where the model predictions and checkpoints will be written.",
@@ -78,44 +78,44 @@ class ScriptArguments:
         },
     )
 
-    per_device_train_batch_size: Optional[int] = field(default=1)
-    per_device_test_batch_size: Optional[int] = field(default=1)
-    per_device_eval_batch_size: Optional[int] = field(default=4)
-    gradient_accumulation_steps: Optional[int] = field(default=17)
-    learning_rate: Optional[float] = field(default=3e-4)
-    max_grad_norm: Optional[float] = field(default=0.3)
-    weight_decay: Optional[int] = field(default=0.01)
-    lora_alpha: Optional[int] = field(default=16)
-    lora_dropout: Optional[int] = field(default=0.0)
-    lora_r: Optional[int] = field(default=16)
-    max_seq_length: Optional[int] = field(default=256)
+    per_device_train_batch_size: int = field(default=1)
+    per_device_test_batch_size: int = field(default=2)
+    per_device_eval_batch_size: int = field(default=4)
+    gradient_accumulation_steps: int = field(default=17)
+    learning_rate: float = field(default=3e-4)
+    max_grad_norm: float = field(default=0.3)
+    weight_decay: int = field(default=0.01)
+    lora_alpha: int = field(default=16)
+    lora_dropout: int = field(default=0.0)
+    lora_r: int = field(default=16)
+    max_seq_length: int = field(default=256)
 
-    local_rank: Optional[int] = field(
+    local_rank: int = field(
         default=-1,
         metadata={
             "help": "Used for Multi GPU.",
         },
     )
 
-    use_4bit: Optional[bool] = field(
+    use_4bit: bool = field(
         default=True,
         metadata={
             "help": "Activate 4 bit precision base model loading.",
         },
     )
-    use_nested_quant: Optional[bool] = field(
+    use_nested_quant: bool = field(
         default=False,
         metadata={
             "help": "Activate nested quantization for 4bit base models.",
         },
     )
-    bnb_4bit_compute_dtype: Optional[str] = field(
+    bnb_4bit_compute_dtype: str = field(
         default="bfloat16",
         metadata={
             "help": "Compute dtype for 4 bit base model.",
         },
     )
-    bnb_4bit_quant_type: Optional[Literal["nf4", "fp4"]] = field(
+    bnb_4bit_quant_type: Literal["nf4", "fp4"] = field(
         default="nf4",
         metadata={
             "help": "Quantization type, can be fp4 or nf4",
@@ -217,21 +217,21 @@ class ScriptArguments:
 
     # ~~~~~~~~~~~~~~~~~~~~~~ Generation Configurations ~~~~~~~~~~~~~~~~~~~~~~
 
-    requested_max_words: Optional[int] = field(
+    requested_max_words: int = field(
         default=80,
         metadata={
             "help": "This number specifies the target word count for the abstract that the model should aim to generate."
         },
     )
 
-    max_tokens_to_generate_for_abstract: Optional[int] = field(
+    max_tokens_to_generate_for_abstract: int = field(
         default=120,
         metadata={
             "help": "The maximum number of tokens the model is allowed to generate for the abstract. This value includes special tokens and may exceed the target word count."
         },
     )
 
-    repetition_penalty: Optional[float] = field(
+    repetition_penalty: float = field(
         default=1.2,
         metadata={
             "help": "A penalty applied to discourage the model from repeating the same tokens during generation. Values greater than 1.0 increase the penalty."
