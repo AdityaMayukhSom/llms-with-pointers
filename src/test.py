@@ -1,4 +1,5 @@
 # from concurrent.futures import ThreadPoolExecutor
+import os
 
 import torch
 from loguru import logger
@@ -25,6 +26,22 @@ def model_test(config: ScriptArguments, device: torch.device):
 
     if config.mode == "test" and config.test_result_dir is None:
         raise ValueError("Please specify a directory where the test results will be stored.")
+
+    result_dir_path = (
+        config.test_result_dir
+        if os.path.isabs(config.test_result_dir)
+        else os.path.join(os.getcwd(), config.test_result_dir)
+    )
+
+    if not os.path.exists(result_dir_path):
+        logger.info("Test results directory {} does not exist. Creating directory...".format(result_dir_path))
+        os.makedirs(result_dir_path, exist_ok=True)
+        logger.success("Test results directory created at {}.".format(result_dir_path))
+
+    if not os.path.isdir(result_dir_path):
+        raise NotADirectoryError(
+            "Path {} is not a directory. To store results, please provide a directory path.".format(result_dir_path)
+        )
 
     model, tokenizer, _ = create_and_prepare_model(config, device=device)
     streamer = TextStreamer(tokenizer) if config.do_streaming_while_generating else None

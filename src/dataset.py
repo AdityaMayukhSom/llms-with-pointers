@@ -61,7 +61,7 @@ def get_dataset(
         raise FileNotFoundError("Path {} does not exist.".format(base_data_directory))
 
     if not os.path.isdir(base_data_directory):
-        raise ValueError("Path {} is not a directory.".format(base_data_directory))
+        raise NotADirectoryError("Path {} is not a directory.".format(base_data_directory))
 
     data_path = os.path.join(base_data_directory, data_filename)
     index_path = os.path.join(base_data_directory, index_filename)
