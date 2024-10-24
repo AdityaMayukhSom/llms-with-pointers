@@ -32,10 +32,15 @@ def batch_transform(batch: List[Dict[str, Any]], requested_max_words: int) -> Di
     # logger.info("Type of `article` before transformation {}".format(article_type))
 
     for elem in batch:
+        # The articles and abstracts loaded in the batch have `bytes` as their element
+        # type, but the tokenizer needs `str` as the element type to work, hence we need
+        # to convert each article and abstract into string before passing to tokenizer.
         elem[DataPointKeys.ARTICLE] = bytes(elem[DataPointKeys.ARTICLE]).decode("utf-8")
         elem[DataPointKeys.ABSTRACT] = bytes(elem[DataPointKeys.ABSTRACT]).decode("utf-8")
 
-        elem[DataPointKeys.ARTICLE] = generate_prompt_from_article(
+        # This key did not exist in the original `elem` in the datapoint, but is being added
+        # so that article can be extracted without explicit parsing of generated outtput later.
+        elem[DataPointKeys.PROMPT] = generate_prompt_from_article(
             elem[DataPointKeys.ARTICLE],
             requested_max_words=requested_max_words,
         )
