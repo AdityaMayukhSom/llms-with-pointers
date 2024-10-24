@@ -7,3 +7,4 @@
 **/wandb/
 **/data/
 **/.mypy_cache/
+**/results_test/
