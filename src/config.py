@@ -36,10 +36,10 @@ class ScriptArguments:
         },
     )
 
-    max_writer_processes: Optional[int] = field(
-        default=4,
+    max_result_writers: Optional[int] = field(
+        default=8,
         metadata={
-            "help": "Maximum processes to write results.",
+            "help": "Maximum processes or threads to write results.",
         },
     )
 
@@ -110,12 +110,12 @@ class ScriptArguments:
         },
     )
     bnb_4bit_compute_dtype: Optional[str] = field(
-        default="float16",
+        default="bfloat16",
         metadata={
             "help": "Compute dtype for 4 bit base model.",
         },
     )
-    bnb_4bit_quant_type: Optional[str] = field(
+    bnb_4bit_quant_type: Optional[Literal["nf4", "fp4"]] = field(
         default="nf4",
         metadata={
             "help": "Quantization type, can be fp4 or nf4",
