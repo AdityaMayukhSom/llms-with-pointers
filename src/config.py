@@ -37,7 +37,7 @@ class ScriptArguments:
     )
 
     max_result_writers: Optional[int] = field(
-        default=8,
+        default=64,
         metadata={
             "help": "Maximum processes or threads to write results.",
         },
@@ -125,31 +125,31 @@ class ScriptArguments:
         default=1,
         metadata={"help": "The number of training epochs for the reward model."},
     )
-    fp16: Optional[bool] = field(
+    fp16: bool = field(
         default=False,
         metadata={
             "help": "Enables fp16 training.",
         },
     )
-    bf16: Optional[bool] = field(
+    bf16: bool = field(
         default=True,
         metadata={
             "help": "Enables bf16 training.",
         },
     )
-    packing: Optional[bool] = field(
+    packing: bool = field(
         default=False,
         metadata={
             "help": "Use packing dataset creating.",
         },
     )
-    gradient_checkpointing: Optional[bool] = field(
+    gradient_checkpointing: bool = field(
         default=False,
         metadata={
             "help": "Enables gradient checkpointing.",
         },
     )
-    optim: Optional[str] = field(
+    optim: str = field(
         default="adamw_torch",
         metadata={
             "help": "The Optimizer to use.",
@@ -162,37 +162,37 @@ class ScriptArguments:
             "help": "Learning rate scheduler. Constant is a bit better than cosine, and has advantage for analysis.",
         },
     )
-    max_steps: Optional[int] = field(
+    max_steps: int = field(
         default=1_000_000,
         metadata={
             "help": "How many optimizer update steps to take.",
         },
     )
-    warmup_steps: Optional[int] = field(
+    warmup_steps: int = field(
         default=100,
         metadata={
             "help": "Number of steps to do a warmup for.",
         },
     )
-    group_by_length: Optional[bool] = field(
+    group_by_length: bool = field(
         default=True,
         metadata={
             "help": "Group sequences into batches with same length, Saves memory and speeds up training considerably.",
         },
     )
-    save_steps: Optional[int] = field(
+    save_steps: int = field(
         default=200,
         metadata={
             "help": "Save checkpoint every X update steps.",
         },
     )
-    logging_steps: Optional[int] = field(
+    logging_steps: int = field(
         default=5,
         metadata={
             "help": "Log every X update steps.",
         },
     )
-    merge_and_push: Optional[bool] = field(
+    merge_and_push: bool = field(
         default=False,
         metadata={
             "help": "Merge and push weights after training.",
