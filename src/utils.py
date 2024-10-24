@@ -39,7 +39,7 @@ def save_test_results(articles: List[str], generated_abstracts: List[str], resul
     for article, abstract in zip(articles, generated_abstracts):
         h = hashlib.sha256(usedforsecurity=False)
         h.update(article.encode(encoding="utf-8"))
-        file_hash = base64.b64decode(h.hexdigest()).decode("utf-8")
+        file_hash = base64.b64decode(h.hexdigest()).decode("ascii")
 
         article_filename = "{}_article.txt".format(file_hash)
         abstract_filename = "{}_abstract.txt".format(file_hash)
