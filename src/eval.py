@@ -29,7 +29,7 @@ def model_eval(config: ScriptArguments, device: torch.device):
         if abstract_filepath is None:
             abstract_filepath = input("Enter Abstract File Path: ")
 
-        with open(article_filepath, "r") as article_file:
+        with open(article_filepath, "r", encoding="utf-8") as article_file:
             article = article_file.read()
 
     else:
@@ -72,7 +72,7 @@ def model_eval(config: ScriptArguments, device: torch.device):
     generated_text = full_output_texts[0][len(full_input_texts[0]) :]
 
     if write_abstract_to_file and abstract_filepath is not None:
-        with open(abstract_filepath, "w") as abstract_file:
+        with open(abstract_filepath, "w", encoding="utf-8") as abstract_file:
             abstract_file.write(generated_text)
 
     if not write_abstract_to_file:

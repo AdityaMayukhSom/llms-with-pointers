@@ -43,8 +43,8 @@ def save_test_results(articles: List[str], generated_abstracts: List[str], resul
         article_filename = "{}_article.txt".format(article_hash)
         abstract_filename = "{}_abstract.txt".format(article_hash)
 
-        with open(os.path.join(result_dir, article_filename), "w") as article_file:
+        with open(os.path.join(result_dir, article_filename), "w", encoding="utf-8") as article_file:
             article_file.write(article)
 
-        with open(os.path.join(result_dir, abstract_filename), "w") as abstract_file:
+        with open(os.path.join(result_dir, abstract_filename), "w", encoding="utf-8") as abstract_file:
             abstract_file.write(abstract)
