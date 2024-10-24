@@ -4,7 +4,7 @@ from transformers.generation import GenerateDecoderOnlyOutput, TextStreamer
 from src.config import ScriptArguments
 from src.dataset import generate_prompt_from_article
 from src.model import create_and_prepare_model
-from src.utils import extract_user_message
+from src.utils import ResultsUtils
 
 
 def model_eval(config: ScriptArguments, device: torch.device):
@@ -13,6 +13,7 @@ def model_eval(config: ScriptArguments, device: torch.device):
 
     article_filepath = config.eval_article_filepath
     abstract_filepath = config.eval_abstract_filepath
+    result_utils = ResultsUtils()
 
     write_abstract_to_file: bool = False  # whether to write the generated abstract to the config path or not
 
@@ -36,10 +37,10 @@ def model_eval(config: ScriptArguments, device: torch.device):
         raise ValueError("could not find respective action to perform")
 
     model, tokenizer, _ = create_and_prepare_model(config, device=device)
-    prompt = [generate_prompt_from_article(article, requested_max_words=config.requested_max_words)]
+    prompts = [generate_prompt_from_article(article, requested_max_words=config.requested_max_words)]
 
     inputs = tokenizer(
-        prompt,
+        prompts,
         return_tensors="pt",
         padding=True,
         truncation=True,
@@ -68,15 +69,14 @@ def model_eval(config: ScriptArguments, device: torch.device):
         skip_special_tokens=True,
     )
 
-    user_article = extract_user_message(prompt[0])
-    generated_text = full_output_texts[0][len(full_input_texts[0]) :]
+    generated_abstracts = result_utils.parse_llm_outputs(full_input_texts, full_output_texts)
 
     if write_abstract_to_file and abstract_filepath is not None:
         with open(abstract_filepath, "w", encoding="utf-8") as abstract_file:
-            abstract_file.write(generated_text)
+            abstract_file.write(generated_abstracts[0])
 
     if not write_abstract_to_file:
         print("~~~~~~~~ Article ~~~~~~~~")
-        print(user_article)
+        print(article)
         print("~~~~~~~~ Summary ~~~~~~~~")
-        print(generated_text)
+        print(generated_abstracts[0])

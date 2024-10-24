@@ -1,4 +1,3 @@
-# from concurrent.futures import ThreadPoolExecutor
 import os
 
 import torch
@@ -9,7 +8,7 @@ from src.config import ScriptArguments
 from src.constants import DataPointKeys
 from src.dataset import batch_transform, get_dataset
 from src.model import create_and_prepare_model
-from src.utils import parse_llm_outputs, save_test_results
+from src.utils import TestResultsUtils
 
 
 def model_test(config: ScriptArguments, device: torch.device):
@@ -27,25 +26,6 @@ def model_test(config: ScriptArguments, device: torch.device):
     if config.mode == "test" and config.test_result_dir is None:
         raise ValueError("Please specify a directory where the test results will be stored.")
 
-    result_dir_path = (
-        config.test_result_dir
-        if os.path.isabs(config.test_result_dir)
-        else os.path.join(os.getcwd(), config.test_result_dir)
-    )
-
-    if not os.path.exists(result_dir_path):
-        logger.info("Test results directory {} does not exist. Creating directory...".format(result_dir_path))
-        os.makedirs(result_dir_path, exist_ok=True)
-        logger.success("Test results directory created at {}.".format(result_dir_path))
-
-    if not os.path.isdir(result_dir_path):
-        raise NotADirectoryError(
-            "Path {} is not a directory. To store results, please provide a directory path.".format(result_dir_path)
-        )
-
-    model, tokenizer, _ = create_and_prepare_model(config, device=device)
-    streamer = TextStreamer(tokenizer) if config.do_streaming_while_generating else None
-
     test_dataset = get_dataset(
         data_filename="single/tfrecord/test.tfrecord",
         index_filename="single/tfindex/test.tfindex",
@@ -59,7 +39,9 @@ def model_test(config: ScriptArguments, device: torch.device):
         collate_fn=lambda x: batch_transform(x, requested_max_words=config.requested_max_words),
     )
 
-    # thread_pool_executor = ThreadPoolExecutor(max_workers=config.max_writer_processes)
+    test_result_utils = TestResultsUtils(config.max_result_writers, config.test_result_dir)
+    model, tokenizer, _ = create_and_prepare_model(config, device=device)
+    streamer = TextStreamer(tokenizer) if config.do_streaming_while_generating else None
 
     for sample in test_loader:
         prompts = sample.get(DataPointKeys.PROMPT)
@@ -113,18 +95,14 @@ def model_test(config: ScriptArguments, device: torch.device):
             skip_special_tokens=True,
         )
 
-        generated_abstracts = parse_llm_outputs(
+        test_result_utils.parse_and_save(
+            articles,
             prompts_without_special_tokens,
             llm_outputs_without_special_tokens,
         )
-        save_test_results(articles, generated_abstracts, config.test_result_dir)
 
-        # thread_pool_executor.submit(
-        #     save_test_results,
-        #     full_input_texts,
-        #     full_output_texts,
-        #     config.test_result_dir,
-        # )
+        del inputs
+        del outputs
 
         # logger.info("output runtime type: {}".format(type(outputs).__name__))
         # logger.info("output.sequences runtime shape: {}".format(outputs.sequences.shape))
@@ -133,7 +111,4 @@ def model_test(config: ScriptArguments, device: torch.device):
         # print(full_output_texts[0])
         # print("~" * 120)
 
-        del inputs
-        del outputs
-
-    # thread_pool_executor.shutdown(wait=True, cancel_futures=False)
+    test_result_utils.shutdown(wait=True, cancel_futures=True)
