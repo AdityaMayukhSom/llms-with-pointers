@@ -32,6 +32,7 @@ def create_and_prepare_model(config: ScriptArguments, device: torch.device):
     model = PointerGeneratorLlamaForCausalLM.from_pretrained(
         pretrained_model_name_or_path=config.model_name,
         quantization_config=bnb_config,
+        attn_implementation="eager",
         low_cpu_mem_usage=True,
     )
 
