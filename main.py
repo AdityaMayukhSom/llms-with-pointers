@@ -31,13 +31,15 @@ if __name__ == "__main__":
         huggingface_token = input("please enter huggingface token manually: ")
 
     huggingface_hub.login(huggingface_token)
-
-    match (config.mode):
-        case "train":
-            model_train(config, device)
-        case "test":
-            model_test(config, device)
-        case "eval":
-            model_eval(config, device)
-        case _:
-            raise NotImplementedError("mode can only be train, text or eval.")
+    try:
+        match (config.mode):
+            case "train":
+                model_train(config, device)
+            case "test":
+                model_test(config, device)
+            case "eval":
+                model_eval(config, device)
+            case _:
+                raise NotImplementedError("mode can only be train, text or eval.")
+    except KeyboardInterrupt as ke:
+        logger.info("Keyboard Interrupt with `Ctrl+C`")
