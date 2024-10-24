@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import os
 import re
@@ -38,9 +39,10 @@ def save_test_results(articles: List[str], generated_abstracts: List[str], resul
     for article, abstract in zip(articles, generated_abstracts):
         h = hashlib.sha256(usedforsecurity=False)
         h.update(article.encode(encoding="utf-8"))
+        file_hash = base64.b64decode(h.hexdigest()).decode("utf-8")
 
-        article_filename = "{}_article.txt".format(h.hexdigest())
-        abstract_filename = "{}_abstract.txt".format(h.hexdigest())
+        article_filename = "{}_article.txt".format(file_hash)
+        abstract_filename = "{}_abstract.txt".format(file_hash)
 
         with open(os.path.join(result_dir, article_filename), "w") as article_file:
             article_file.write(article)
