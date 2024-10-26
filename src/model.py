@@ -10,7 +10,7 @@ from src.llama import PointerGeneratorLlamaForCausalLM
 
 
 def create_and_prepare_model(config: ScriptArguments, device: torch.device):
-    compute_dtype = getattr(torch, config.bnb_4bit_compute_dtype)
+    compute_dtype = getattr(torch, config.bnb_4bit_compute_dtype, torch.bfloat16)
 
     # commented qlora stuff
     bnb_config = BitsAndBytesConfig(
