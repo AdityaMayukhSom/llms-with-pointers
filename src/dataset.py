@@ -5,18 +5,13 @@ from tfrecord.torch.dataset import TFRecordDataset
 from torch.utils.data import IterableDataset
 from torch.utils.data._utils.collate import default_collate
 
-from src.constants import (
-    INSTRUCT_PROMPT_TEMPLATE,
-    SYSTEM_MESSAGE,
-    USER_MESSAGE_TEMPLATE,
-    DataPointKeys,
-)
+from src.constants import DataPointKeys, MessageTemplates
 
 
 def generate_prompt_from_article(article: str, requested_max_words: int):
-    return INSTRUCT_PROMPT_TEMPLATE.format(
-        system_message=SYSTEM_MESSAGE,
-        user_message=USER_MESSAGE_TEMPLATE.format(
+    return MessageTemplates.INSTRUCT_PROMPT.format(
+        system_message=MessageTemplates.SYSTEM_MESSAGE,
+        user_message=MessageTemplates.USER_MESSAGE.format(
             article=article,
             max_words=requested_max_words,
         ),
