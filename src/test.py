@@ -7,7 +7,7 @@ from transformers import LlamaForCausalLM, PreTrainedTokenizer, PreTrainedTokeni
 from transformers.generation import GenerateDecoderOnlyOutput, TextStreamer
 
 from src.config import ScriptArguments
-from src.constants import DataPointKeys
+from src.constants import DataFilePaths, DataPointKeys
 from src.dataset import batch_transform, get_dataset
 from src.model import create_and_prepare_model
 from src.utils import MetricsUtils, TestResultsUtils
@@ -25,6 +25,9 @@ def process_test_batch(
     test_result_utils: TestResultsUtils,
     **kwargs
 ):
+    """
+    Executes a single batch of test data.
+    """
     prompts = sample.get(DataPointKeys.PROMPT)
     articles = sample.get(DataPointKeys.ARTICLE)
     abstracts = sample.get(DataPointKeys.ABSTRACT)
@@ -102,8 +105,8 @@ def model_test(config: ScriptArguments, device: torch.device):
         raise ValueError("Please specify a directory where the test results will be stored.")
 
     test_dataset = get_dataset(
-        data_filename="single/tfrecord/test.tfrecord",
-        index_filename="single/tfindex/test.tfindex",
+        data_filename=DataFilePaths.TEST_DATA,
+        index_filename=DataFilePaths.TEST_INDX,
         base_data_directory=config.data_dir,
     )
 

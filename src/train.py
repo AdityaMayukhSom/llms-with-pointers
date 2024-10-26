@@ -16,6 +16,7 @@ from transformers import (
 from trl import SFTTrainer
 
 from src.config import ScriptArguments
+from src.constants import DataFilePaths
 from src.dataset import get_dataset
 from src.model import create_and_prepare_model
 
@@ -45,13 +46,13 @@ def model_train(config: ScriptArguments, device: torch.device):
 
     logger.info("Creating Train Dataset.")
     train_ds = get_dataset(
-        data_filename="single/tfrecord/train.tfrecord",
-        index_filename="single/tfindex/train.tfindex",
+        data_filename=DataFilePaths.TRAIN_DATA,
+        index_filename=DataFilePaths.TRAIN_INDX,
         base_data_directory=config.data_dir,
     )
     val_ds = get_dataset(
-        data_filename="single/tfrecord/val.tfrecord",
-        index_filename="single/tfindex/val.tfindex",
+        data_filename=DataFilePaths.VAL_DATA,
+        index_filename=DataFilePaths.VAL_INDX,
         base_data_directory=config.data_dir,
     )
     logger.success("Train Dataset Successfully Created.")
