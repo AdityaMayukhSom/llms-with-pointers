@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Any, Dict, Optional, Union
 
 import torch
 import torch.nn as nn
@@ -21,12 +21,27 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
     def __init__(self, *args, **kwargs):
         super(PointerGeneratorLlamaForCausalLM, self).__init__(*args, **kwargs)
 
+    def reduce_multihead_attention(self, multihead_attention: torch.LongTensor | torch.FloatTensor | torch.IntTensor):
+        return torch.mean(multihead_attention, dim=(1, 2), keepdim=False)
+
+    @staticmethod
     def project_attention_on_vocab(
-        self,
-        output: torch.FloatTensor | torch.LongTensor,
+        vocab_size: int,
+        input_ids: torch.FloatTensor | torch.LongTensor,
         attention: torch.FloatTensor,
     ) -> torch.FloatTensor:
-        return torch.zeros([0, 2])
+        batch_size, seq_len = attention.shape
+        vocab_projection = torch.zeros((batch_size, vocab_size), device=attention.device)
+
+        # I have a tensor named reduced_attn, another called logits and an integer vocab_size, I want to create
+        # a new tensor with the position of new_tensor[logits[i]] = reduced_attn[i] as reduced_attn and logits
+        # have same size, but both reduced_attn and logits have another dimention called batch_size, so how to
+        # do it in pytorch
+
+        # Use batch indices to assign values from reduced_attn to vocab_projection at logits-specified positions
+        batch_indices = torch.arange(batch_size).unsqueeze(1).expand(-1, seq_len)
+        vocab_projection[batch_indices, input_ids] = attention
+        return vocab_projection
 
     def _sample(
         self,
@@ -103,6 +118,8 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
         while self._has_unfinished_sequences(
             this_peer_finished, synced_gpus, device=input_ids.device, cur_len=cur_len, max_length=max_length
         ):
+            print("input ids shape", input_ids.shape)
+
             # prepare model inputs
             model_inputs = self.prepare_inputs_for_generation(input_ids, **model_kwargs)
 
@@ -111,7 +128,17 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
             model_inputs.update({"output_hidden_states": output_hidden_states} if output_hidden_states else {})
 
             # forward pass to get next token
-            outputs = self(**model_inputs, return_dict=True)
+            outputs: Dict[str, Any] = self(**model_inputs, return_dict=True)
+
+            print("Length of attentions", len(outputs["attentions"]))
+
+            last_hidden_layer_attn: torch.FloatTensor = outputs["attentions"][-1]
+            print("Shape of last attention [-1]", last_hidden_layer_attn.shape)
+
+            reduced_attn = self.reduce_multihead_attention(last_hidden_layer_attn)
+            attn_projection = []
+
+            print("Reduced Attention Shape", reduced_attn.shape)
 
             if synced_gpus and this_peer_finished:
                 continue  # don't waste resources running the code we don't need
@@ -141,6 +168,9 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
                         (outputs.decoder_hidden_states,) if self.config.is_encoder_decoder else (outputs.hidden_states,)
                     )
 
+            print("next token logits shape", next_token_logits.shape)
+            print("next token scores shape", next_token_scores.shape)
+
             # token selection
             if do_sample:
                 probs = nn.functional.softmax(next_token_scores, dim=-1)
@@ -153,10 +183,14 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
             if has_eos_stopping_criteria:
                 next_tokens = next_tokens * unfinished_sequences + pad_token_id * (1 - unfinished_sequences)
 
+            print("next token shape", next_tokens.shape)
+
             # update generated ids, model inputs, and length for next step
             input_ids = torch.cat([input_ids, next_tokens[:, None]], dim=-1)
+
             if streamer is not None:
                 streamer.put(next_tokens.cpu())
+
             model_kwargs = self._update_model_kwargs_for_generation(
                 outputs,
                 model_kwargs,
