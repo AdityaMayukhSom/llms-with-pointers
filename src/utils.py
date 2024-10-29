@@ -1,12 +1,12 @@
 import datetime
-import errno
 import hashlib
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from functools import wraps
-from typing import Callable, List, ParamSpec, TypeVar
+from typing import Any, Callable, List, ParamSpec, TypeVar
 
+import torch
 from loguru import logger
 
 T = TypeVar("T")
@@ -26,6 +26,15 @@ class MetricsUtils:
             return result
 
         return execution_time_wrapper
+
+
+class TensorUtils:
+    @staticmethod
+    def log_details(torch_tensor: Any, tensor_name: str) -> None:
+        if isinstance(torch_tensor, torch.Tensor):
+            print(tensor_name, type(torch_tensor).__name__, torch_tensor.dtype, torch_tensor.shape, sep="\t")
+        else:
+            print(f"{tensor_name} is not a tensor")
 
 
 class ResultsUtils:
