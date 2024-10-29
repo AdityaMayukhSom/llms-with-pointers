@@ -16,12 +16,15 @@ from transformers.generation import (
 )
 from transformers.generation.streamers import BaseStreamer
 
+from src.utils import TensorUtils
+
 
 class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
     def __init__(self, *args, **kwargs):
         super(PointerGeneratorLlamaForCausalLM, self).__init__(*args, **kwargs)
 
-    def reduce_multihead_attention(self, multihead_attention: torch.LongTensor | torch.FloatTensor | torch.IntTensor):
+    @staticmethod
+    def reduce_multihead_attention(multihead_attention: torch.LongTensor | torch.FloatTensor | torch.IntTensor):
         return torch.mean(multihead_attention, dim=(1, 2), keepdim=False)
 
     @staticmethod
@@ -30,15 +33,14 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
         input_ids: torch.FloatTensor | torch.LongTensor,
         attention: torch.FloatTensor,
     ) -> torch.FloatTensor:
+        TensorUtils.log_details(input_ids, "input_ids")
+        TensorUtils.log_details(attention, "attention")
+
         batch_size, seq_len = attention.shape
-        vocab_projection = torch.zeros((batch_size, vocab_size), device=attention.device)
 
-        # I have a tensor named reduced_attn, another called logits and an integer vocab_size, I want to create
-        # a new tensor with the position of new_tensor[logits[i]] = reduced_attn[i] as reduced_attn and logits
-        # have same size, but both reduced_attn and logits have another dimention called batch_size, so how to
-        # do it in pytorch
+        vocab_projection = torch.zeros((batch_size, vocab_size), device=attention.device, dtype=torch.float16)
+        TensorUtils.log_details(vocab_projection, "vocab_projection")
 
-        # Use batch indices to assign values from reduced_attn to vocab_projection at logits-specified positions
         batch_indices = torch.arange(batch_size).unsqueeze(1).expand(-1, seq_len)
         vocab_projection[batch_indices, input_ids] = attention
         return vocab_projection
@@ -118,7 +120,7 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
         while self._has_unfinished_sequences(
             this_peer_finished, synced_gpus, device=input_ids.device, cur_len=cur_len, max_length=max_length
         ):
-            print("input ids shape", input_ids.shape)
+            TensorUtils.log_details(input_ids, "input_ids")
 
             # prepare model inputs
             model_inputs = self.prepare_inputs_for_generation(input_ids, **model_kwargs)
@@ -133,12 +135,7 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
             print("Length of attentions", len(outputs["attentions"]))
 
             last_hidden_layer_attn: torch.FloatTensor = outputs["attentions"][-1]
-            print("Shape of last attention [-1]", last_hidden_layer_attn.shape)
-
-            reduced_attn = self.reduce_multihead_attention(last_hidden_layer_attn)
-            attn_projection = []
-
-            print("Reduced Attention Shape", reduced_attn.shape)
+            TensorUtils.log_details(last_hidden_layer_attn, "last_hidden_layer_attn")
 
             if synced_gpus and this_peer_finished:
                 continue  # don't waste resources running the code we don't need
@@ -149,6 +146,12 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
 
             # pre-process distribution
             next_token_scores = logits_processor(input_ids, next_token_logits)
+
+            reduced_attn = self.reduce_multihead_attention(last_hidden_layer_attn)
+            TensorUtils.log_details(reduced_attn, "reduced_attn")
+
+            attn_projection = self.project_attention_on_vocab(self.vocab_size, model_inputs["input_ids"], reduced_attn)
+            TensorUtils.log_details(attn_projection, "attn_projection")
 
             # Store scores, attentions and hidden_states when required
             if return_dict_in_generate:
@@ -168,8 +171,8 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
                         (outputs.decoder_hidden_states,) if self.config.is_encoder_decoder else (outputs.hidden_states,)
                     )
 
-            print("next token logits shape", next_token_logits.shape)
-            print("next token scores shape", next_token_scores.shape)
+            TensorUtils.log_details(next_token_logits, "next_token_logits")
+            TensorUtils.log_details(next_token_scores, "next_token_scores")
 
             # token selection
             if do_sample:
@@ -183,7 +186,7 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
             if has_eos_stopping_criteria:
                 next_tokens = next_tokens * unfinished_sequences + pad_token_id * (1 - unfinished_sequences)
 
-            print("next token shape", next_tokens.shape)
+            TensorUtils.log_details(next_tokens, "next_tokens")
 
             # update generated ids, model inputs, and length for next step
             input_ids = torch.cat([input_ids, next_tokens[:, None]], dim=-1)
