@@ -18,24 +18,6 @@ from transformers.generation.streamers import BaseStreamer
 from src.utils import DivergenceUtils, TensorUtils
 
 
-class GenerationProbability(nn.Module):
-    def __init__(self, *args, **kwargs):
-        super(GenerationProbability, self).__init__(*args, **kwargs)
-        self.dropout = nn.Dropout(0.1)
-        self.Wh = nn.Linear(1, 1, True)
-        self.Ws = nn.Linear(1, 1, True)
-        self.Wx = nn.Linear(1, 1, True)
-        self.V = nn.Linear(1, 1, True)
-
-    def forward(self, input_embedding, decoder_output, context_vector):
-        a = self.Wx(input_embedding)
-        b = self.Ws(decoder_output)
-        c = self.Wh(context_vector)
-        s = self.V(a + b + c)
-        p_gens = torch.nn.functional.sigmoid(s)
-        return p_gens
-
-
 class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
     def __init__(self, *args, **kwargs):
         super(PointerGeneratorLlamaForCausalLM, self).__init__(*args, **kwargs)
@@ -64,10 +46,8 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
             reduced_attention:
                 attention value for each position in the input. Must have same shape as `input_ids`.
         """
-
-        TensorUtils.log_details(reduced_attention, "reduced_attention")
-        TensorUtils.log_details(input_ids, "input_ids")
         assert reduced_attention.shape == input_ids.shape
+
         batch_size, seq_len = reduced_attention.shape
         vocab_projection = torch.zeros(
             (batch_size, vocab_size),
@@ -78,11 +58,18 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
         vocab_projection[batch_indices, input_ids] = reduced_attention
         return vocab_projection
 
+    @staticmethod
+    def create_non_input_prompt_mask(current_length: int, initial_tokens_count: int, batch_size: int) -> torch.Tensor:
+        single_mask = torch.arange(current_length) < initial_tokens_count
+        mask = single_mask.unsqueeze(0).expand(batch_size, -1)
+        return mask
+
     def calc_final_distribution(
         self,
         next_token_scores: torch.IntTensor | torch.FloatTensor | torch.LongTensor,
         input_ids: torch.LongTensor,
         attention: torch.FloatTensor | torch.HalfTensor,
+        initial_tokens_count: int,
     ):
         """
         Calculates final distribution by modifying the generated probability distribution  with attention values used for pointing from the source text.
@@ -97,11 +84,16 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
             attention (torch.FloatTensor | torch.HalfTensor):
                 This is non-reduced raw attention with multiple head values, i.e. the attention value returned directly from the output of the model. This function also reduces the attention values to the same shape as `input_ids` to be projected over the vocabulary before modifying the generated distribution.
 
+            initial_tokens_count (int):
+                Number of initial tokens in the prompt.
 
         See :func:`PointerGeneratorLlamaForCausalLM.project_attention_on_vocab`
         """
+
         reduced_attn = self.reduce_multihead_attention(attention)
-        attn_projection = self.project_attention_on_vocab(self.vocab_size, input_ids, reduced_attn)
+        attn_projection = self.project_attention_on_vocab(self.vocab_size, input_ids, reduced_attn & only_input_mask)
+        batch_size, current_tokens_length = reduced_attn.size()
+        only_input_mask = self.create_non_input_prompt_mask(current_tokens_length, initial_tokens_count, batch_size)
 
         # attn_projection = torch.softmax(attn_projection, dim=-1)
         # TensorUtils.log_details(attn_projection, "attn_projection")
@@ -186,6 +178,8 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
         this_peer_finished = False
         unfinished_sequences = torch.ones(batch_size, dtype=torch.long, device=input_ids.device)
         model_kwargs = self._get_initial_cache_position(input_ids, model_kwargs)
+
+        initial_tokens_count = input_ids.size(dim=-1)
 
         while self._has_unfinished_sequences(
             this_peer_finished,
