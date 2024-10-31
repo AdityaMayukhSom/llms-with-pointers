@@ -19,6 +19,21 @@ from transformers.generation.streamers import BaseStreamer
 from src.utils import TensorUtils
 
 
+class JensenShannonDivergence(nn.Module):
+    def __init__(self):
+        super(JensenShannonDivergence, self).__init__()
+
+    def forward(self, logits_1, logits_2):
+        probs_1 = F.softmax(logits_1)
+        probs_2 = F.softmax(logits_2)
+        m = 0.5 * (probs_1 + probs_2)
+
+        loss = 0.0
+        loss += F.kl_div(F.log_softmax(logits_1, dim=1), m, reduction="batchmean")
+        loss += F.kl_div(F.log_softmax(logits_2, dim=1), m, reduction="batchmean")
+        return 0.5 * loss
+
+
 class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
     def __init__(self, *args, **kwargs):
         super(PointerGeneratorLlamaForCausalLM, self).__init__(*args, **kwargs)
