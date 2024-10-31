@@ -1,2 +1,2 @@
-from .test_llama import TestPointerGeneratorLlama
-from .test_utils import TestDivergenceUtils
+from .test_divergence_utils import *
+from .test_llama_utils import *

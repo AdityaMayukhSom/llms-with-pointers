@@ -15,97 +15,13 @@ from transformers.generation import (
 )
 from transformers.generation.streamers import BaseStreamer
 
-from src.utils import DivergenceUtils, TensorUtils
+from src.utils import PointerGeneratorLlamaUtils, TensorUtils
 
 
 class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
     def __init__(self, *args, **kwargs):
         super(PointerGeneratorLlamaForCausalLM, self).__init__(*args, **kwargs)
-        self.divergence_utils = DivergenceUtils()
-
-    @staticmethod
-    def reduce_multihead_attention(multihead_attention: torch.LongTensor | torch.FloatTensor | torch.IntTensor):
-        return torch.mean(multihead_attention, dim=(1, 2), keepdim=False)
-
-    @staticmethod
-    def project_attention_on_vocab(
-        vocab_size: int,
-        input_ids: torch.FloatTensor | torch.LongTensor,
-        reduced_attention: torch.FloatTensor,
-    ) -> torch.FloatTensor:
-        """
-        Converts position wise attention values into token wise attention distribution. More formally, puts positional attention value into the correspnding id's index in a tensor with length as vocab length. All the remaining position's values are initialized with zero.
-
-        Args:
-            vocab_size:
-                The total number of tokens present in the vocabulary on which to distribute the reduced_attention over.
-
-            input_ids:
-                This is required because the attention values provided by the model are for each individual position in the input. Hence we can index the `vocab_projection` with the combination for `batch_indices`and `input_ids` to assign `reduced_attention` value for that particular position in `vocab_projection`.
-
-            reduced_attention:
-                attention value for each position in the input. Must have same shape as `input_ids`.
-        """
-        assert reduced_attention.shape == input_ids.shape
-
-        batch_size, seq_len = reduced_attention.shape
-        vocab_projection = torch.zeros(
-            (batch_size, vocab_size),
-            device=reduced_attention.device,
-            dtype=reduced_attention.dtype,
-        )
-        batch_indices = torch.arange(batch_size).unsqueeze(1).expand(-1, seq_len)
-        vocab_projection[batch_indices, input_ids] = reduced_attention
-        return vocab_projection
-
-    @staticmethod
-    def create_non_input_prompt_mask(current_length: int, initial_tokens_count: int, batch_size: int) -> torch.Tensor:
-        single_mask = torch.arange(current_length) < initial_tokens_count
-        mask = single_mask.unsqueeze(0).expand(batch_size, -1)
-        return mask
-
-    def calc_final_distribution(
-        self,
-        next_token_scores: torch.IntTensor | torch.FloatTensor | torch.LongTensor,
-        input_ids: torch.LongTensor,
-        attention: torch.FloatTensor | torch.HalfTensor,
-        initial_tokens_count: int,
-    ):
-        """
-        Calculates final distribution by modifying the generated probability distribution  with attention values used for pointing from the source text.
-
-        Args:
-            next_token_scores (torch.IntTensor | torch.FloatTensor | torch.LongTensor):
-                _description_
-
-            input_ids (torch.LongTensor):
-                _description_
-
-            attention (torch.FloatTensor | torch.HalfTensor):
-                This is non-reduced raw attention with multiple head values, i.e. the attention value returned directly from the output of the model. This function also reduces the attention values to the same shape as `input_ids` to be projected over the vocabulary before modifying the generated distribution.
-
-            initial_tokens_count (int):
-                Number of initial tokens in the prompt.
-
-        See :func:`PointerGeneratorLlamaForCausalLM.project_attention_on_vocab`
-        """
-
-        reduced_attn = self.reduce_multihead_attention(attention)
-        attn_projection = self.project_attention_on_vocab(self.vocab_size, input_ids, reduced_attn & only_input_mask)
-        batch_size, current_tokens_length = reduced_attn.size()
-        only_input_mask = self.create_non_input_prompt_mask(current_tokens_length, initial_tokens_count, batch_size)
-
-        # attn_projection = torch.softmax(attn_projection, dim=-1)
-        # TensorUtils.log_details(attn_projection, "attn_projection")
-
-        # TODO: add soft switch with p_gen as decoder only models do not have any generated context
-        # It might have historical hidden states with
-        p_gen = 0.5
-
-        # normalize the output to range between zero to one
-        # normalized_next_token_scores = torch.softmax(next_token_scores, dim=-1)
-        generation_probability = p_gen * next_token_scores + (1 - p_gen) * attn_projection
-        return generation_probability
+        self.pointer_generator_llama_utils = PointerGeneratorLlamaUtils()
 
     def _sample(
         self,
@@ -195,6 +111,8 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
             model_inputs.update({"output_attentions": output_attentions} if output_attentions else {})
             model_inputs.update({"output_hidden_states": output_hidden_states} if output_hidden_states else {})
 
+            print("model inputs", model_inputs)
+
             # forward pass to get next token
             outputs: Dict[str, Any] = self(**model_inputs, return_dict=True)
 
@@ -226,8 +144,13 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
                         (outputs.decoder_hidden_states,) if self.config.is_encoder_decoder else (outputs.hidden_states,)
                     )
 
+            TensorUtils.log_details(next_token_logits, "next_token_logits")
+            TensorUtils.log_details(outputs.attentions, "outputs.attentions")
+            TensorUtils.log_details(outputs.hidden_states, "outputs.hidden_states")
+            TensorUtils.log_details(next_token_scores, "next_token_scores")
+
             # last_hidden_layer_attn: torch.FloatTensor = outputs["attentions"][-1]
-            # next_token_scores = self.calc_final_distribution(next_token_scores, input_ids, last_hidden_layer_attn)
+            # next_token_scores = self.pointer_generator_llama_utils.calc_final_distribution(next_token_scores, input_ids, last_hidden_layer_attn)
 
             # token selection
             if do_sample:

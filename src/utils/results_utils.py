@@ -1,104 +1,10 @@
 import datetime
 import hashlib
 import os
-import time
 from concurrent.futures import ThreadPoolExecutor
-from functools import wraps
-from typing import Any, Callable, List, Literal, ParamSpec, TypeVar
+from typing import List
 
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
 from loguru import logger
-
-T = TypeVar("T")
-P = ParamSpec("P")
-
-
-class MetricsUtils:
-    @staticmethod
-    def execution_time(func: Callable[P, T]):
-        @wraps(func)
-        def execution_time_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
-            start_time = time.perf_counter()
-            result = func(*args, **kwargs)
-            end_time = time.perf_counter()
-            total_time = end_time - start_time
-            logger.info(f"Function: {func.__name__} Took {total_time:.4f} seconds")
-            return result
-
-        return execution_time_wrapper
-
-
-class TensorUtils:
-    __DEBUG_MODE = False
-
-    @staticmethod
-    def log_details(torch_tensor: Any, tensor_name: str) -> None:
-        if not TensorUtils.__DEBUG_MODE:
-            return
-
-        if isinstance(torch_tensor, torch.Tensor):
-            print(tensor_name.ljust(24), type(torch_tensor).__name__, torch_tensor.dtype, torch_tensor.shape, sep="\t")
-        else:
-            print(f"{tensor_name} is not a tensor")
-
-
-class DivergenceUtils:
-    def kullback_leibler(self, P: torch.Tensor, Q: torch.Tensor, epsilon: float = 0.0000001):
-        kld_elems = P * (torch.log((P + epsilon) / (Q + epsilon)))
-        kld = torch.sum(kld_elems, dim=1, keepdim=True, dtype=P.dtype)
-        # print(kld_elems)
-        return kld
-
-    def jensen_shannon(
-        self,
-        P: torch.Tensor,
-        Q: torch.Tensor,
-        return_value: Literal["distance", "divergence"] = "distance",
-        is_probability: bool = True,
-        epsilon: float = 1e-8,
-    ):
-        """
-        Computes the Jensen-Shannon Divergence or Distance between two sets of logits or probability distributions.
-
-        Refer - `Jensen-Shannon Divergence <https://en.wikipedia.org/wiki/Jensen-Shannon_divergence>`__
-
-        Args:
-            P (torch.Tensor):
-                A tensor typically of shape (batch_size, num_classes), containing logits or probability values.
-            Q (torch.Tensor):
-                A tensor typically of shape (batch_size, num_classes), containing logits or probability values.
-            return_value (Literal["distance", "divergence"], optional):
-                Specifies whether to return the Jensen-Shannon "distance" (square root of divergence) or "divergence".
-                Defaults to "distance".
-            is_probability (bool, optional):
-                If True, the inputs are treated as probabilities. If False, the inputs are considered logits and
-                are converted to probabilities using softmax. Defaults to True.
-
-        Returns:
-            torch.Tensor:
-                The computed Jensen-Shannon distance (if return_value is `distance`) or divergence
-                (if return_value is `divergence`) between distributions P and Q.
-        """
-        if not is_probability:
-            P = F.softmax(P, dim=1)
-            Q = F.softmax(Q, dim=1)
-
-        M = 0.5 * (P + Q)
-
-        kl_PM = self.kullback_leibler(P, M, epsilon)
-        kl_QM = self.kullback_leibler(Q, M, epsilon)
-
-        # print("kl_PM", kl_PM)
-        # print("kl_QM", kl_QM)
-
-        result = 0.5 * (kl_PM + kl_QM)  # Jensen Shannon Divergence
-
-        if return_value == "distance":
-            result = torch.sqrt(result)  # Jensen Shannon Distance
-
-        return result
 
 
 class ResultsUtils:
