@@ -8,3 +8,4 @@
 **/data/
 **/.mypy_cache/
 **/results_test/
+**/temp/
