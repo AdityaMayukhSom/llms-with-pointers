@@ -58,6 +58,7 @@ def process_test_batch(
         output_logits=True,
         output_scores=True,
         output_attentions=True,
+        output_hidden_states=True,
         return_dict_in_generate=True,
         repetition_penalty=config.repetition_penalty,
         streamer=streamer,
