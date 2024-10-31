@@ -22,17 +22,22 @@ class MetricsUtils:
             result = func(*args, **kwargs)
             end_time = time.perf_counter()
             total_time = end_time - start_time
-            print(f"Function {func.__name__} Took {total_time:.4f} seconds")
+            logger.info(f"Function: {func.__name__} Took {total_time:.4f} seconds")
             return result
 
         return execution_time_wrapper
 
 
 class TensorUtils:
+    __DEBUG_MODE = False
+
     @staticmethod
     def log_details(torch_tensor: Any, tensor_name: str) -> None:
+        if not TensorUtils.__DEBUG_MODE:
+            return
+
         if isinstance(torch_tensor, torch.Tensor):
-            print(tensor_name, type(torch_tensor).__name__, torch_tensor.dtype, torch_tensor.shape, sep="\t")
+            print(tensor_name.ljust(24), type(torch_tensor).__name__, torch_tensor.dtype, torch_tensor.shape, sep="\t")
         else:
             print(f"{tensor_name} is not a tensor")
 
