@@ -57,7 +57,7 @@ class ScriptArguments:
         },
     )
 
-    eval_source: Optional[Literal["manual", "file"]] = field(
+    eval_type: Optional[Literal["manual", "file"]] = field(
         default=None,
         metadata={
             "help": "Specify the input source for the article. In 'eval' mode, source must be either 'manual' for direct input or 'file' for reading from a text file."
