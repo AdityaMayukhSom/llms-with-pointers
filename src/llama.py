@@ -15,7 +15,7 @@ from transformers.generation import (
 )
 from transformers.generation.streamers import BaseStreamer
 
-from src.utils import JensenShannonUtils, TensorUtils
+from src.utils import DivergenceUtils, TensorUtils
 
 
 class GenerationProbability(nn.Module):
@@ -39,7 +39,7 @@ class GenerationProbability(nn.Module):
 class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
     def __init__(self, *args, **kwargs):
         super(PointerGeneratorLlamaForCausalLM, self).__init__(*args, **kwargs)
-        self.jensen_shannon_utils = JensenShannonUtils()
+        self.divergence_utils = DivergenceUtils()
 
     @staticmethod
     def reduce_multihead_attention(multihead_attention: torch.LongTensor | torch.FloatTensor | torch.IntTensor):

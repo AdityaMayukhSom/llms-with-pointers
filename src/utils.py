@@ -44,17 +44,25 @@ class TensorUtils:
             print(f"{tensor_name} is not a tensor")
 
 
-class JensenShannonUtils:
-    def compute(
+class DivergenceUtils:
+    def kullback_leibler(self, P: torch.Tensor, Q: torch.Tensor, epsilon: float = 0.0000001):
+        kld_elems = P * (torch.log((P + epsilon) / (Q + epsilon)))
+        kld = torch.sum(kld_elems, dim=1, keepdim=True, dtype=P.dtype)
+        # print(kld_elems)
+        return kld
+
+    def jensen_shannon(
         self,
         P: torch.Tensor,
         Q: torch.Tensor,
         return_value: Literal["distance", "divergence"] = "distance",
-        is_probability: bool = False,
+        is_probability: bool = True,
         epsilon: float = 1e-8,
     ):
         """
         Computes the Jensen-Shannon Divergence or Distance between two sets of logits or probability distributions.
+
+        Refer - `Jensen-Shannon Divergence <https://en.wikipedia.org/wiki/Jensen-Shannon_divergence>`__
 
         Args:
             P (torch.Tensor):
@@ -66,28 +74,31 @@ class JensenShannonUtils:
                 Defaults to "distance".
             is_probability (bool, optional):
                 If True, the inputs are treated as probabilities. If False, the inputs are considered logits and
-                are converted to probabilities using softmax. Defaults to False.
+                are converted to probabilities using softmax. Defaults to True.
 
         Returns:
             torch.Tensor:
                 The computed Jensen-Shannon distance (if return_value is `distance`) or divergence
                 (if return_value is `divergence`) between distributions P and Q.
         """
-        p = P if is_probability else F.softmax(P, dim=1)
-        q = Q if is_probability else F.softmax(Q, dim=1)
+        if not is_probability:
+            P = F.softmax(P, dim=1)
+            Q = F.softmax(Q, dim=1)
 
-        m = 0.5 * (p + q + epsilon)
+        M = 0.5 * (P + Q)
 
-        log_p = torch.log(p + epsilon)
-        log_q = torch.log(q + epsilon)
+        kl_PM = self.kullback_leibler(P, M, epsilon)
+        kl_QM = self.kullback_leibler(Q, M, epsilon)
 
-        kl_pm = F.kl_div(log_p, m, reduction="batchmean")
-        kl_qm = F.kl_div(log_q, m, reduction="batchmean")
+        # print("kl_PM", kl_PM)
+        # print("kl_QM", kl_QM)
 
-        divergence = 0.5 * (kl_pm + kl_qm)
-        distance = torch.sqrt(divergence)
+        result = 0.5 * (kl_PM + kl_QM)  # Jensen Shannon Divergence
 
-        return distance if return_value == "distance" else divergence
+        if return_value == "distance":
+            result = torch.sqrt(result)  # Jensen Shannon Distance
+
+        return result
 
 
 class ResultsUtils:
