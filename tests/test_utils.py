@@ -23,6 +23,18 @@ class TestDivergenceUtils(unittest.TestCase):
         expected_qp = torch.tensor([[0.097_455]], device=self.device)
         torch.testing.assert_close(observed_qp, expected_qp)
 
+    def test_kullback_leibler_divergence_for_non_identical_distribution(self):
+        P = torch.tensor([[0.70, 0.10, 0.20]], device=self.device)
+        Q = torch.tensor([[0.05, 0.30, 0.65]], device=self.device)
+
+        observed_pq = self.divergence_utils.kullback_leibler(P, Q)
+        expected_pq = torch.tensor([[1.501_747_786]], device=self.device)
+        torch.testing.assert_close(observed_pq, expected_pq)
+
+        observed_qp = self.divergence_utils.kullback_leibler(Q, P)
+        expected_qp = torch.tensor([[0.963_756_534]], device=self.device)
+        torch.testing.assert_close(observed_qp, expected_qp)
+
     def test_kullback_leibler_divergence_on_jensen_shannon_example(self):
         P = torch.tensor([[0.36, 0.48, 0.16]], device=self.device)
         Q = torch.tensor([[0.30, 0.50, 0.20]], device=self.device)
@@ -64,6 +76,18 @@ class TestDivergenceUtils(unittest.TestCase):
         observed = self.divergence_utils.jensen_shannon(P, Q, return_value="divergence")
         expected = torch.tensor([[0.002_514_670]], device=self.device)
         torch.testing.assert_close(observed, expected, msg="4 value error")
+
+    def test_jensen_shannon_divergence_for_non_identical_distribution(self):
+        P = torch.tensor([[0.70, 0.10, 0.20]], device=self.device)
+        Q = torch.tensor([[0.05, 0.30, 0.65]], device=self.device)
+
+        observed_divergence = self.divergence_utils.jensen_shannon(P, Q, return_value="divergence")
+        expected_divergence = torch.tensor([[0.256_953_697]], device=self.device)
+        torch.testing.assert_close(observed_divergence, expected_divergence)
+
+        observed_distance = self.divergence_utils.jensen_shannon(P, Q, return_value="distance")
+        expected_distance = torch.tensor([[0.506_906_004]], device=self.device)
+        torch.testing.assert_close(observed_distance, expected_distance)
 
     def test_jensen_shannon_divergence_cumulative_property(self):
         P = torch.tensor([[0.36, 0.48, 0.16]], device=self.device)
