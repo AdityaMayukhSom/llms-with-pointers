@@ -5,7 +5,7 @@ import torch
 from src.llama import PointerGeneratorLlamaForCausalLM
 
 
-class TestPGNConfig(unittest.TestCase):
+class TestPointerGeneratorLlama(unittest.TestCase):
     def test_project_attention_on_vocab(self):
         batch_size = 2
         vocab_size = 10
