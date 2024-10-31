@@ -11,12 +11,14 @@ class PointerGeneratorLlamaUtils:
         self.divergence_utils = DivergenceUtils()
         self.dola_candidate_indices: List[int] = [4, 8, 12, 16, 20]
 
-    @staticmethod
-    def reduce_multihead_attention(multihead_attention: torch.LongTensor | torch.FloatTensor | torch.IntTensor):
+    def reduce_multihead_attention(
+        self,
+        multihead_attention: torch.LongTensor | torch.FloatTensor | torch.IntTensor,
+    ):
         return torch.mean(multihead_attention, dim=(1, 2), keepdim=False)
 
-    @staticmethod
     def project_attention_on_vocab(
+        self,
         vocab_size: int,
         input_ids: torch.FloatTensor | torch.LongTensor,
         reduced_attention: torch.FloatTensor,
@@ -46,8 +48,9 @@ class PointerGeneratorLlamaUtils:
         vocab_projection[batch_indices, input_ids] = reduced_attention
         return vocab_projection
 
-    @staticmethod
-    def create_non_input_prompt_mask(current_length: int, initial_tokens_count: int, batch_size: int) -> torch.Tensor:
+    def create_non_input_prompt_mask(
+        self, current_length: int, initial_tokens_count: int, batch_size: int
+    ) -> torch.Tensor:
         single_mask = torch.arange(current_length) < initial_tokens_count
         mask = single_mask.unsqueeze(0).expand(batch_size, -1)
         return mask

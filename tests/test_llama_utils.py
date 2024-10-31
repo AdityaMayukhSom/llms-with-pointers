@@ -6,6 +6,10 @@ from src.utils import PointerGeneratorLlamaUtils
 
 
 class TestPointerGeneratorLlamaUtils(unittest.TestCase):
+    def setUp(self):
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.pgl_utils = PointerGeneratorLlamaUtils()
+
     def test_project_attention_on_vocab(self):
         batch_size, vocab_size = 2, 10
 
@@ -19,7 +23,7 @@ class TestPointerGeneratorLlamaUtils(unittest.TestCase):
         expected[0, [1, 5, 3]] = torch.tensor([0.2, 0.3, 0.5])
         expected[1, [7, 2, 6]] = torch.tensor([0.1, 0.4, 0.6])
 
-        observed = PointerGeneratorLlamaUtils.project_attention_on_vocab(vocab_size, input_ids, attention)
+        observed = self.pgl_utils.project_attention_on_vocab(vocab_size, input_ids, attention)
 
         self.assertEqual(observed.shape, expected_output_shape, "attention projection shape mismatch")
         torch.testing.assert_close(observed, expected)
@@ -31,14 +35,12 @@ class TestPointerGeneratorLlamaUtils(unittest.TestCase):
         mask_list = [[1] * init_tok_cnt + [0] * newly_generated_tokens] * batch_size
         expected = torch.tensor(mask_list, dtype=torch.bool)
 
-        observed = PointerGeneratorLlamaUtils.create_non_input_prompt_mask(cur_len, init_tok_cnt, batch_size)
+        observed = self.pgl_utils.create_non_input_prompt_mask(cur_len, init_tok_cnt, batch_size)
         torch.testing.assert_close(observed, expected)
 
     def test_mask_application(self):
         batch_size, init_tok_cnt, cur_len = 3, 4, 7
-
-        # Generate the mask
-        mask = PointerGeneratorLlamaUtils.create_non_input_prompt_mask(cur_len, init_tok_cnt, batch_size)
+        mask = self.pgl_utils.create_non_input_prompt_mask(cur_len, init_tok_cnt, batch_size)
 
         # Create a mock tensor with values from 1 to cur_len, repeated for each batch
         input_tensor = torch.randn((batch_size, cur_len))
@@ -50,7 +52,6 @@ class TestPointerGeneratorLlamaUtils(unittest.TestCase):
         expected_output = input_tensor.clone()
         expected_output[:, init_tok_cnt:] = 0  # Set values after `init_tok_cnt` to zero
 
-        # Assert that the masked output matches the expected output
         torch.testing.assert_close(masked_output, expected_output)
 
 
