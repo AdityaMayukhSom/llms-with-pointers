@@ -8,8 +8,8 @@ from src.utils import ResultsUtils
 
 
 def model_eval(config: ScriptArguments, device: torch.device):
-    if config.mode == "eval" and config.source is None:
-        raise ValueError("In 'eval' mode, 'source' must be provided.")
+    if config.mode == "eval" and config.eval_type is None:
+        raise ValueError("In 'eval' mode, 'eval_type' must be provided.")
 
     article_filepath = config.eval_article_filepath
     abstract_filepath = config.eval_abstract_filepath
@@ -17,11 +17,11 @@ def model_eval(config: ScriptArguments, device: torch.device):
 
     write_abstract_to_file: bool = False  # whether to write the generated abstract to the config path or not
 
-    if config.eval_source == "manual":
+    if config.eval_type == "manual":
         write_abstract_to_file = False
         article = input("Enter Article: ")
 
-    elif config.eval_source == "file":
+    elif config.eval_type == "file":
         write_abstract_to_file = True
 
         if article_filepath is None:
@@ -34,7 +34,7 @@ def model_eval(config: ScriptArguments, device: torch.device):
             article = article_file.read()
 
     else:
-        raise ValueError("could not find respective action to perform")
+        raise ValueError(f"`eval_type` can either be `file` or `manual`, but `{config.eval_type}` was provided.")
 
     model, tokenizer, _ = create_and_prepare_model(config, device=device)
     prompts = [generate_prompt_from_article(article, requested_max_words=config.requested_max_words)]
@@ -46,6 +46,8 @@ def model_eval(config: ScriptArguments, device: torch.device):
         truncation=True,
     ).to(device=device)
 
+    streamer = None if write_abstract_to_file or not config.do_streaming_while_generating else TextStreamer(tokenizer)
+
     outputs: GenerateDecoderOnlyOutput = model.generate(
         **inputs,
         max_new_tokens=config.max_tokens_to_generate_for_abstract,
@@ -53,10 +55,10 @@ def model_eval(config: ScriptArguments, device: torch.device):
         output_logits=True,
         output_scores=True,
         output_attentions=True,
+        output_hidden_states=True,
         return_dict_in_generate=True,
-        streamer=(
-            None if write_abstract_to_file or not config.do_streaming_while_generating else TextStreamer(tokenizer)
-        ),
+        repetition_penalty=config.repetition_penalty,
+        streamer=streamer,
     )
 
     full_input_texts = tokenizer.batch_decode(
