@@ -2,6 +2,7 @@ from typing import Any, Dict, Optional, Union
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from loguru import logger
 from transformers import (
     GenerationConfig,
