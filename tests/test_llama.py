@@ -7,32 +7,22 @@ from src.llama import PointerGeneratorLlamaForCausalLM
 
 class TestPointerGeneratorLlama(unittest.TestCase):
     def test_project_attention_on_vocab(self):
-        batch_size = 2
-        vocab_size = 10
+        batch_size, vocab_size = 2, 10
 
         input_ids = torch.tensor([[1, 5, 3], [7, 2, 6]])
         attention = torch.tensor([[0.2, 0.3, 0.5], [0.1, 0.4, 0.6]])
 
         # Expected output shape
-        expected_shape = (batch_size, vocab_size)
+        expected_output_shape = (batch_size, vocab_size)
+        expected = torch.zeros(expected_output_shape, dtype=torch.float32)
 
-        result = PointerGeneratorLlamaForCausalLM.project_attention_on_vocab(vocab_size, input_ids, attention)
+        expected[0, [1, 5, 3]] = torch.tensor([0.2, 0.3, 0.5])
+        expected[1, [7, 2, 6]] = torch.tensor([0.1, 0.4, 0.6])
 
-        self.assertEqual(result.shape, expected_shape, "attention projection shape mismatch")
+        observed = PointerGeneratorLlamaForCausalLM.project_attention_on_vocab(vocab_size, input_ids, attention)
 
-        # Check correct assignment
-        self.assertAlmostEqual(result[0, 1].item(), 0.2, places=4)
-        self.assertAlmostEqual(result[0, 5].item(), 0.3, places=4)
-        self.assertAlmostEqual(result[0, 3].item(), 0.5, places=4)
-        self.assertAlmostEqual(result[1, 7].item(), 0.1, places=4)
-        self.assertAlmostEqual(result[1, 2].item(), 0.4, places=4)
-        self.assertAlmostEqual(result[1, 6].item(), 0.6, places=4)
-
-        # Check other positions are zero
-        for i in range(batch_size):
-            for j in range(vocab_size):
-                if j not in input_ids[i]:
-                    self.assertAlmostEqual(result[i, j].item(), 0.0, places=4)
+        self.assertEqual(observed.shape, expected_output_shape, "attention projection shape mismatch")
+        torch.testing.assert_close(observed, expected)
 
 
 if __name__ == "__main__":
