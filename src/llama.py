@@ -2,8 +2,6 @@ from typing import Any, Dict, Optional, Union
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from loguru import logger
 from transformers import (
     GenerationConfig,
     LlamaForCausalLM,
@@ -17,28 +15,31 @@ from transformers.generation import (
 )
 from transformers.generation.streamers import BaseStreamer
 
-from src.utils import TensorUtils
+from src.utils import JensenShannonUtils, TensorUtils
 
 
-class JensenShannonDivergence(nn.Module):
-    def __init__(self):
-        super(JensenShannonDivergence, self).__init__()
+class GenerationProbability(nn.Module):
+    def __init__(self, *args, **kwargs):
+        super(GenerationProbability, self).__init__(*args, **kwargs)
+        self.dropout = nn.Dropout(0.1)
+        self.Wh = nn.Linear(1, 1, True)
+        self.Ws = nn.Linear(1, 1, True)
+        self.Wx = nn.Linear(1, 1, True)
+        self.V = nn.Linear(1, 1, True)
 
-    def forward(self, logits_1, logits_2):
-        probs_1 = F.softmax(logits_1)
-        probs_2 = F.softmax(logits_2)
-        m = 0.5 * (probs_1 + probs_2)
-
-        loss = 0.0
-        loss += F.kl_div(F.log_softmax(logits_1, dim=1), m, reduction="batchmean")
-        loss += F.kl_div(F.log_softmax(logits_2, dim=1), m, reduction="batchmean")
-        return 0.5 * loss
+    def forward(self, input_embedding, decoder_output, context_vector):
+        a = self.Wx(input_embedding)
+        b = self.Ws(decoder_output)
+        c = self.Wh(context_vector)
+        s = self.V(a + b + c)
+        p_gens = torch.nn.functional.sigmoid(s)
+        return p_gens
 
 
 class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
     def __init__(self, *args, **kwargs):
         super(PointerGeneratorLlamaForCausalLM, self).__init__(*args, **kwargs)
-        self.jensen_shannon_divergence = JensenShannonDivergence()
+        self.jensen_shannon_utils = JensenShannonUtils()
 
     @staticmethod
     def reduce_multihead_attention(multihead_attention: torch.LongTensor | torch.FloatTensor | torch.IntTensor):
@@ -68,7 +69,11 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
         TensorUtils.log_details(input_ids, "input_ids")
         assert reduced_attention.shape == input_ids.shape
         batch_size, seq_len = reduced_attention.shape
-        vocab_projection = torch.zeros((batch_size, vocab_size), device=reduced_attention.device, dtype=torch.float16)
+        vocab_projection = torch.zeros(
+            (batch_size, vocab_size),
+            device=reduced_attention.device,
+            dtype=reduced_attention.dtype,
+        )
         batch_indices = torch.arange(batch_size).unsqueeze(1).expand(-1, seq_len)
         vocab_projection[batch_indices, input_ids] = reduced_attention
         return vocab_projection

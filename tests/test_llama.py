@@ -6,34 +6,19 @@ from src.llama import PointerGeneratorLlamaForCausalLM
 
 
 class TestPGNConfig(unittest.TestCase):
-
     def test_project_attention_on_vocab(self):
-        # Test parameters
         batch_size = 2
         vocab_size = 10
 
-        # Sample inputs
-        input_ids = torch.tensor(
-            [
-                [1, 5, 3],
-                [7, 2, 6],
-            ]
-        )
-        attention = torch.tensor(
-            [
-                [0.2, 0.3, 0.5],
-                [0.1, 0.4, 0.6],
-            ]
-        )
+        input_ids = torch.tensor([[1, 5, 3], [7, 2, 6]])
+        attention = torch.tensor([[0.2, 0.3, 0.5], [0.1, 0.4, 0.6]])
 
         # Expected output shape
         expected_shape = (batch_size, vocab_size)
 
-        # Run function
         result = PointerGeneratorLlamaForCausalLM.project_attention_on_vocab(vocab_size, input_ids, attention)
 
-        # Check shape
-        self.assertEqual(result.shape, expected_shape, "Output shape mismatch.")
+        self.assertEqual(result.shape, expected_shape, "attention projection shape mismatch")
 
         # Check correct assignment
         self.assertAlmostEqual(result[0, 1].item(), 0.2, places=4)

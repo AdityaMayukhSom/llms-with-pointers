@@ -4,9 +4,11 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from functools import wraps
-from typing import Any, Callable, List, ParamSpec, TypeVar
+from typing import Any, Callable, List, Literal, ParamSpec, TypeVar
 
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from loguru import logger
 
 T = TypeVar("T")
@@ -40,6 +42,52 @@ class TensorUtils:
             print(tensor_name.ljust(24), type(torch_tensor).__name__, torch_tensor.dtype, torch_tensor.shape, sep="\t")
         else:
             print(f"{tensor_name} is not a tensor")
+
+
+class JensenShannonUtils:
+    def compute(
+        self,
+        P: torch.Tensor,
+        Q: torch.Tensor,
+        return_value: Literal["distance", "divergence"] = "distance",
+        is_probability: bool = False,
+        epsilon: float = 1e-8,
+    ):
+        """
+        Computes the Jensen-Shannon Divergence or Distance between two sets of logits or probability distributions.
+
+        Args:
+            P (torch.Tensor):
+                A tensor typically of shape (batch_size, num_classes), containing logits or probability values.
+            Q (torch.Tensor):
+                A tensor typically of shape (batch_size, num_classes), containing logits or probability values.
+            return_value (Literal["distance", "divergence"], optional):
+                Specifies whether to return the Jensen-Shannon "distance" (square root of divergence) or "divergence".
+                Defaults to "distance".
+            is_probability (bool, optional):
+                If True, the inputs are treated as probabilities. If False, the inputs are considered logits and
+                are converted to probabilities using softmax. Defaults to False.
+
+        Returns:
+            torch.Tensor:
+                The computed Jensen-Shannon distance (if return_value is `distance`) or divergence
+                (if return_value is `divergence`) between distributions P and Q.
+        """
+        p = P if is_probability else F.softmax(P, dim=1)
+        q = Q if is_probability else F.softmax(Q, dim=1)
+
+        m = 0.5 * (p + q + epsilon)
+
+        log_p = torch.log(p + epsilon)
+        log_q = torch.log(q + epsilon)
+
+        kl_pm = F.kl_div(log_p, m, reduction="batchmean")
+        kl_qm = F.kl_div(log_q, m, reduction="batchmean")
+
+        divergence = 0.5 * (kl_pm + kl_qm)
+        distance = torch.sqrt(divergence)
+
+        return distance if return_value == "distance" else divergence
 
 
 class ResultsUtils:
