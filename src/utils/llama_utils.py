@@ -123,7 +123,6 @@ class PointerGeneratorLlamaUtils:
         See:
             * :func:`PointerGeneratorLlamaForCausalLM.project_attention_on_vocab`
         """
-        logits = torch.cat(logits, dim=0)
         scores = F.softmax(logits, dim=-1)
         p_vocab = scores[:, -1, :]
 
