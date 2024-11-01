@@ -33,10 +33,10 @@ if __name__ == "__main__":
     # probabilities in P, and the second line contains M numbers
     # for the probabilities in Q. Therefore, the file will have
     # a total of 2 * N lines following the first line.
-    in_path = "./temp/Divergence_Input.txt"
+    in_path = "./temp/divergence_input.txt"
 
     # Path to store the results of the calculation.
-    out_path = "./temp/Divergence_Output.txt"
+    out_path = "./temp/divergence_output.txt"
 
     in_file = open(in_path, mode="r", encoding="UTF-8")
     out_file = open(out_path, mode="w", encoding="UTF-8")
