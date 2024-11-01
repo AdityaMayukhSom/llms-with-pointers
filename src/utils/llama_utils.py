@@ -15,8 +15,8 @@ class PointerGeneratorLlamaUtils:
         self.__num_hidden_layers = num_hidden_layers
         self.__divergence_utils = DivergenceUtils()
 
-        # This declaration is done for satisfying the intellsense otherwise
-        # this variable was not shown in intelliisense suggestions
+        # Declaration is done to satisfy the intellsense. Otherwise
+        # this variable was not shown in intellisense suggestions
         self.__dola_candidate_indices: List[int] = []
         self.set_dola_candiate_indices(dola_candidate_indices)
 
@@ -37,10 +37,7 @@ class PointerGeneratorLlamaUtils:
 
         self.__dola_candidate_indices = sorted_dola_candidate_indices
 
-    def reduce_multihead_attention(
-        self,
-        multihead_attention: torch.LongTensor | torch.FloatTensor | torch.IntTensor,
-    ):
+    def reduce_multihead_attention(self, multihead_attention: torch.Tensor):
         return torch.mean(multihead_attention, dim=(1, 2), keepdim=False)
 
     def project_attention_on_vocab(
@@ -77,53 +74,71 @@ class PointerGeneratorLlamaUtils:
         mask = single_mask.unsqueeze(0).expand(batch_size, -1)
         return mask
 
-    def calc_copy_probability(self, *, logits: Tuple[torch.Tensor]):
-        hidden_layer_scores = F.softmax(torch.tensor(logits), dim=-1)
-        anchor_layer = hidden_layer_scores[:, -1, :]
-        candidate_layers = hidden_layer_scores[:, self.__dola_candidate_indices, :]
+    def calc_copy_probability(self, *, scores: torch.Tensor):
+        anchor_layer = scores[:, -1, :]
+        candidate_layers = scores[:, self.__dola_candidate_indices, :]
         divergences = self.__divergence_utils.jensen_shannon(anchor_layer, candidate_layers)
-        return torch.max(divergences)
+        return torch.mean(divergences)
 
     def calc_final_distribution(
         self,
-        next_token_scores: torch.IntTensor | torch.FloatTensor | torch.LongTensor,
+        *,
         input_ids: torch.LongTensor,
+        logits: Tuple[torch.Tensor],
         attention: torch.FloatTensor | torch.HalfTensor,
-        initial_tokens_count: int,
+        instrn_tok_cnt: int,
+        prompt_tok_cnt: int,
     ):
         """
-        Calculates final distribution by modifying the generated probability distribution  with attention values used for pointing from the source text.
+        Calculates the final probability distribution by combining the generated vocabulary distribution
+        with the pointer attention distribution over the source document.
 
         Args:
-            next_token_scores (torch.IntTensor | torch.FloatTensor | torch.LongTensor):
-                _description_
-
             input_ids (torch.LongTensor):
-                _description_
+                Token IDs of the input sequence upto currently generated token.
+
+            logits (Tuple[torch.Tensor]):
+                Logits from the model output for each layer about each token in the sequence, used to
+                compute the vocabulary distribution.
 
             attention (torch.FloatTensor | torch.HalfTensor):
-                This is non-reduced raw attention with multiple head values, i.e. the attention value returned directly from the output of the model. This function also reduces the attention values to the same shape as `input_ids` to be projected over the vocabulary before modifying the generated distribution.
+                Multi-head attention weights from the model output, with one attention value per head.
+                This function reduces the attention values to match the shape of `input_ids`, allowing
+                projection over the vocabulary before modifying the generated distribution.
 
-            initial_tokens_count (int):
-                Number of initial tokens in the prompt.
+            instrn_tok_cnt (int):
+                Number of tokens in the instruction part of the input sequence; these tokens are ignored
+                in the pointer distribution.
 
-        See :func:`PointerGeneratorLlamaForCausalLM.project_attention_on_vocab`
+            prompt_tok_cnt (int):
+                Number of tokens in the entire prompt (including instruction tokens); tokens beyond this
+                count are considered part of the generated sequence and excluded from the pointer
+                distribution.
+
+        Returns:
+            torch.FloatTensor: The final probability distribution for the next token, combining the
+            original model's vocabulary distribution with the pointer-based distribution to emphasize
+            source document content.
+
+        See:
+            * :func:`PointerGeneratorLlamaForCausalLM.project_attention_on_vocab`
         """
+        logits = torch.cat(logits, dim=0)
+        scores = F.softmax(logits, dim=-1)
+        p_vocab = scores[:, -1, :]
 
         reduced_attn = self.reduce_multihead_attention(attention)
+
         batch_size, current_tokens_length = reduced_attn.size()
+        masked_attn = reduced_attn.clone(memory_format=torch.contiguous_format)
+        masked_attn[:, :instrn_tok_cnt, :] = 0
+        masked_attn[:, prompt_tok_cnt:, :] = 0
 
-        only_input_mask = self.create_non_input_prompt_mask(current_tokens_length, initial_tokens_count, batch_size)
-        attn_projection = self.project_attention_on_vocab(self.vocab_size, input_ids, reduced_attn * only_input_mask)
+        only_input_mask = self.create_non_input_prompt_mask(current_tokens_length, instrn_tok_cnt, batch_size)
+        attn_projection = self.project_attention_on_vocab(self.vocab_size, input_ids, masked_attn)
+        p_doc = attn_projection / torch.sum(attn_projection, dim=-1, keepdim=True)
 
-        # attn_projection = torch.softmax(attn_projection, dim=-1)
-        # TensorUtils.log_details(attn_projection, "attn_projection")
+        p_copy = self.calc_copy_probability(logits=logits)
 
-        # TODO: add soft switch with p_gen as decoder only models do not have any generated context
-        # It might have historical hidden states with
-        p_gen = 0.5
-
-        # normalize the output to range between zero to one
-        # normalized_next_token_scores = torch.softmax(next_token_scores, dim=-1)
-        generation_probability = p_gen * next_token_scores + (1 - p_gen) * attn_projection
-        return generation_probability
+        p_generation = p_copy * p_doc + (1 - p_copy) * p_vocab
+        return p_generation
