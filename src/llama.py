@@ -14,14 +14,18 @@ from transformers.generation import (
     GenerationConfig,
 )
 from transformers.generation.streamers import BaseStreamer
+from transformers.models.llama import LlamaConfig
 
 from src.utils import PointerGeneratorLlamaUtils, TensorUtils
 
 
 class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
-    def __init__(self, *args, **kwargs):
-        super(PointerGeneratorLlamaForCausalLM, self).__init__(*args, **kwargs)
-        self.pointer_generator_llama_utils = PointerGeneratorLlamaUtils()
+    def __init__(self, config: LlamaConfig):
+        super(PointerGeneratorLlamaForCausalLM, self).__init__(config)
+        self.pointer_generator_llama_utils = PointerGeneratorLlamaUtils(
+            num_hidden_layers=config.num_hidden_layers,
+            dola_candidate_indices=[4, 8, 12, 16, 20],
+        )
 
     def _sample(
         self,
@@ -111,8 +115,6 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
             model_inputs.update({"output_attentions": output_attentions} if output_attentions else {})
             model_inputs.update({"output_hidden_states": output_hidden_states} if output_hidden_states else {})
 
-            print("model inputs", model_inputs)
-
             # forward pass to get next token
             outputs: Dict[str, Any] = self(**model_inputs, return_dict=True)
 
@@ -147,6 +149,8 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
             TensorUtils.log_details(next_token_logits, "next_token_logits")
             TensorUtils.log_details(outputs.attentions, "outputs.attentions")
             TensorUtils.log_details(outputs.hidden_states, "outputs.hidden_states")
+            TensorUtils.log_details(outputs.hidden_states[0], "outputs.hidden_states[0]")
+            TensorUtils.log_details(torch.stack(outputs.hidden_states, dim=1), "outputs.hidden_states tensor")
             TensorUtils.log_details(next_token_scores, "next_token_scores")
 
             # last_hidden_layer_attn: torch.FloatTensor = outputs["attentions"][-1]

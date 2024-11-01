@@ -1,4 +1,5 @@
-from typing import List, Tuple
+from inspect import cleandoc
+from typing import List, Optional, Tuple
 
 import torch
 import torch.nn.functional as F
@@ -7,9 +8,34 @@ from src.utils import DivergenceUtils
 
 
 class PointerGeneratorLlamaUtils:
-    def __init__(self):
-        self.divergence_utils = DivergenceUtils()
-        self.dola_candidate_indices: List[int] = [4, 8, 12, 16, 20]
+    def __init__(self, *, num_hidden_layers: int, dola_candidate_indices: List[int]):
+        if not num_hidden_layers:
+            raise ValueError("Cannot have zero hidden layers, `num_hidden_layer` must be more than zero.")
+
+        self.__num_hidden_layers = num_hidden_layers
+        self.__divergence_utils = DivergenceUtils()
+
+        # This declaration is done for satisfying the intellsense otherwise
+        # this variable was not shown in intelliisense suggestions
+        self.__dola_candidate_indices: List[int] = []
+        self.set_dola_candiate_indices(dola_candidate_indices)
+
+    def set_dola_candiate_indices(self, dola_candidate_indices: List[int]):
+        if not dola_candidate_indices:
+            raise ValueError("Atleast one DoLA candidate layer index must be specified.")
+
+        sorted_dola_candidate_indices = sorted(dola_candidate_indices)
+        max_candidate_idx = sorted_dola_candidate_indices[-1]
+
+        if max_candidate_idx >= self.__num_hidden_layers:
+            err_msg = f"""
+            Invalid DoLA candidate layer indices: 
+            Expected values in the range {0} to {self.__num_hidden_layers - 1}.
+            Found an index exceeding the limit: {max_candidate_idx}. 
+            """
+            raise ValueError(cleandoc(err_msg))
+
+        self.__dola_candidate_indices = sorted_dola_candidate_indices
 
     def reduce_multihead_attention(
         self,
@@ -37,13 +63,9 @@ class PointerGeneratorLlamaUtils:
                 attention value for each position in the input. Must have same shape as `input_ids`.
         """
         assert reduced_attention.shape == input_ids.shape
-
         batch_size, seq_len = reduced_attention.shape
-        vocab_projection = torch.zeros(
-            (batch_size, vocab_size),
-            device=reduced_attention.device,
-            dtype=reduced_attention.dtype,
-        )
+        proj_shape = (batch_size, vocab_size)
+        vocab_projection = torch.zeros(proj_shape, device=reduced_attention.device, dtype=reduced_attention.dtype)
         batch_indices = torch.arange(batch_size).unsqueeze(1).expand(-1, seq_len)
         vocab_projection[batch_indices, input_ids] = reduced_attention
         return vocab_projection
@@ -55,11 +77,11 @@ class PointerGeneratorLlamaUtils:
         mask = single_mask.unsqueeze(0).expand(batch_size, -1)
         return mask
 
-    def calc_copy_probability(self, logits: Tuple[torch.Tensor]):
-        hidden_layer_scoeres = F.softmax(torch.tensor(logits), dim=-1)
-        anchor_layer = hidden_layer_scoeres[:, -1, :]
-        candidate_layers = hidden_layer_scoeres[:, self.dola_candidate_indices, :]
-        divergences = self.divergence_utils.jensen_shannon(anchor_layer, candidate_layers)
+    def calc_copy_probability(self, *, logits: Tuple[torch.Tensor]):
+        hidden_layer_scores = F.softmax(torch.tensor(logits), dim=-1)
+        anchor_layer = hidden_layer_scores[:, -1, :]
+        candidate_layers = hidden_layer_scores[:, self.__dola_candidate_indices, :]
+        divergences = self.__divergence_utils.jensen_shannon(anchor_layer, candidate_layers)
         return torch.max(divergences)
 
     def calc_final_distribution(

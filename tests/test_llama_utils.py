@@ -8,7 +8,10 @@ from src.utils import PointerGeneratorLlamaUtils
 class TestPointerGeneratorLlamaUtils(unittest.TestCase):
     def setUp(self):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.pgl_utils = PointerGeneratorLlamaUtils()
+        self.pgl_utils = PointerGeneratorLlamaUtils(
+            num_hidden_layers=24,
+            dola_candidate_indices=[4, 8, 12, 16, 20],
+        )
 
     def test_project_attention_on_vocab(self):
         batch_size, vocab_size = 2, 10
