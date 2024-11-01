@@ -109,16 +109,69 @@ class TestDivergenceUtils(unittest.TestCase):
     def test_jensen_shannon_distance(self):
         P = torch.tensor([[0.36, 0.48, 0.16]], device=self.device)
         Q = torch.tensor([[0.30, 0.50, 0.20]], device=self.device)
-        actual = torch.tensor([[0.050_803_321]], device=self.device)
+        expected = torch.tensor([[0.050_803_321]], device=self.device)
         observed = self.divergence_utils.jensen_shannon(P, Q, return_value="distance")
-        torch.testing.assert_close(observed, actual)
+        torch.testing.assert_close(observed, expected)
 
-    def test_jensen_shannon_divergence_broadcasting(self):
+    def test_jensen_shannon_divergence_broadcasting_2D(self):
         P = torch.tensor([[0.36, 0.48, 0.16]], device=self.device)
         Q = torch.tensor([[0.30, 0.50, 0.20], [0.20, 0.40, 0.40], [0.20, 0.40, 0.40]], device=self.device)
-        actual = torch.tensor([[0.002_580_977], [0.039_975_793], [0.039_975_793]], device=self.device)
+        expected = torch.tensor([[0.002_580_977], [0.039_975_793], [0.039_975_793]], device=self.device)
         observed = self.divergence_utils.jensen_shannon(P, Q, return_value="divergence")
-        torch.testing.assert_close(observed, actual)
+        torch.testing.assert_close(observed, expected)
+
+    def test_jensen_shannon_divergence_broadcasting_3D(self):
+        P = torch.tensor(
+            [
+                [
+                    [0.36, 0.24, 0.16, 0.24],
+                ],
+                [
+                    [0.16, 0.36, 0.36, 0.12],
+                ],
+            ],
+            device=self.device,
+        )
+
+        Q = torch.tensor(
+            [
+                [
+                    [0.30, 0.40, 0.20, 0.10],
+                    [0.25, 0.35, 0.25, 0.15],
+                    [0.20, 0.30, 0.40, 0.10],
+                ],
+                [
+                    [0.30, 0.50, 0.10, 0.10],
+                    [0.20, 0.40, 0.20, 0.20],
+                    [0.60, 0.10, 0.20, 0.10],
+                ],
+            ],
+            device=self.device,
+        )
+
+        expected = torch.tensor(
+            [
+                [
+                    [0.027_435_237],
+                    [0.020_362_369],
+                    [0.054_674_658],
+                ],
+                [
+                    [0.056_000_313],
+                    [0.018_282_772],
+                    [0.118_871_267],
+                ],
+            ],
+            device=self.device,
+        )
+
+        observed = self.divergence_utils.jensen_shannon(P, Q, return_value="divergence")
+
+        self.assertEqual(P.shape, (2, 1, 4))
+        self.assertEqual(Q.shape, (2, 3, 4))
+        self.assertEqual(expected.shape, (2, 3, 1))
+        self.assertEqual(observed.shape, (2, 3, 1))
+        torch.testing.assert_close(observed, expected)
 
     def test_jensen_shannon_divergence_and_distance_between_identical_distributions(self):
         P = torch.tensor([[0.36, 0.48, 0.16]], device=self.device)
