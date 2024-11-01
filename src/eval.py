@@ -37,7 +37,7 @@ def model_eval(config: ScriptArguments, device: torch.device):
         raise ValueError(f"`eval_type` can either be `file` or `manual`, but `{config.eval_type}` was provided.")
 
     model, tokenizer, _ = create_and_prepare_model(config, device=device)
-    prompts = [generate_prompt_from_article(article, requested_max_words=config.requested_max_words)]
+    prompts = [generate_prompt_from_article(article, max_words=config.requested_max_words)]
 
     inputs = tokenizer(
         prompts,

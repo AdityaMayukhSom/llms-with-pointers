@@ -10,17 +10,14 @@ class MessageTemplates:
     <|start_header_id|>user<|end_header_id|>
     {user_message}
     <|eot_id|>
-    <|start_header_id|>assistant<|end_header_id|>"""
+    <|start_header_id|>assistant<|end_header_id|>
+    """
 
     SYSTEM_MESSAGE = """\
-    You are an expert in reading articles and coming up with brief, yet clear and informative abstracts.
-    Only return a generated abstract. Do not provide any explanations or unnecessary words. 
-    Do not provide anything which is not necessary or related to the abstract. Just provide the abstract."""
+    Summarize the following article strictly within {max_words} words. Focus solely on the main points, avoiding unnecessary details or commentary. Do not exceed {max_words} words under any circumstances. Provide only the abstract text without any extra comments or explanations.
+    """
 
-    USER_MESSAGE = """\
-    Summarize this following article under {max_words} words:
-
-    {article}"""
+    USER_MESSAGE = "{article}"
 
 
 @enum.unique

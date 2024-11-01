@@ -8,13 +8,10 @@ from torch.utils.data._utils.collate import default_collate
 from src.constants import DataPointKeys, MessageTemplates
 
 
-def generate_prompt_from_article(article: str, requested_max_words: int):
+def generate_prompt_from_article(article: str, max_words: int):
     return MessageTemplates.INSTRUCT_PROMPT.format(
-        system_message=MessageTemplates.SYSTEM_MESSAGE,
-        user_message=MessageTemplates.USER_MESSAGE.format(
-            article=article,
-            max_words=requested_max_words,
-        ),
+        system_message=MessageTemplates.SYSTEM_MESSAGE.format(max_words=max_words),
+        user_message=MessageTemplates.USER_MESSAGE.format(article=article),
     )
 
 
@@ -23,9 +20,6 @@ def datapoint_transform(datapoint: Dict[str, str]):
 
 
 def batch_transform(batch: List[Dict[str, Any]], requested_max_words: int) -> Dict[str, List]:
-    # article_type = type(batch[0][DataPointKeys.ARTICLE]).__name__
-    # logger.info("Type of `article` before transformation {}".format(article_type))
-
     for elem in batch:
         # The articles and abstracts loaded in the batch have `bytes` as their element
         # type, but the tokenizer needs `str` as the element type to work, hence we need
@@ -37,12 +31,8 @@ def batch_transform(batch: List[Dict[str, Any]], requested_max_words: int) -> Di
         # so that article can be extracted without explicit parsing of generated outtput later.
         elem[DataPointKeys.PROMPT] = generate_prompt_from_article(
             elem[DataPointKeys.ARTICLE],
-            requested_max_words=requested_max_words,
+            max_words=requested_max_words,
         )
-
-    # article_type = type(batch[0][DataPointKeys.ARTICLE]).__name__
-    # logger.info("Type of `article` before transformation {}".format(article_type))
-
     return default_collate(batch)
 
 
