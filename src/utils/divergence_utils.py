@@ -7,7 +7,7 @@ import torch.nn.functional as F
 class DivergenceUtils:
     def kullback_leibler(self, P: torch.Tensor, Q: torch.Tensor, epsilon: float = 0.0000001):
         elemwise_kl_divergence = P * (torch.log((P + epsilon) / (Q + epsilon)))
-        kl_divergence = torch.sum(elemwise_kl_divergence, dim=1, keepdim=True, dtype=P.dtype)
+        kl_divergence = torch.sum(elemwise_kl_divergence, dim=-1, keepdim=True, dtype=P.dtype)
         return kl_divergence
 
     def jensen_shannon(
@@ -41,8 +41,8 @@ class DivergenceUtils:
                 (if return_value is `divergence`) between distributions P and Q.
         """
         if not is_probability:
-            P = F.softmax(P, dim=1)
-            Q = F.softmax(Q, dim=1)
+            P = F.softmax(P, dim=-1)
+            Q = F.softmax(Q, dim=-1)
 
         M = 0.5 * (P + Q)
 
