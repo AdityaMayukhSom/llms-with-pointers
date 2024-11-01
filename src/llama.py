@@ -14,6 +14,7 @@ from transformers.generation import (
     GenerationConfig,
 )
 from transformers.generation.streamers import BaseStreamer
+from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers.models.llama import LlamaConfig
 
 from src.utils import PointerGeneratorLlamaUtils, TensorUtils
@@ -116,14 +117,24 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
             model_inputs.update({"output_hidden_states": output_hidden_states} if output_hidden_states else {})
 
             # forward pass to get next token
-            outputs: Dict[str, Any] = self(**model_inputs, return_dict=True)
+            outputs: CausalLMOutputWithPast = self(**model_inputs, return_dict=True)
 
             if synced_gpus and this_peer_finished:
                 continue  # don't waste resources running the code we don't need
 
             # Clone is needed to avoid keeping a hanging ref to outputs.logits which may be very large
             # for first iteration (the clone itself is always small)
-            next_token_logits = outputs.logits.clone()[:, -1, :].float()
+            ouput_logits = outputs.logits.clone()
+
+            # next_token_logits = ouput_logits[:, -1, :].float()
+
+            next_token_logits = self.pointer_generator_llama_utils.calc_final_distribution(
+                input_ids=input_ids,
+                logits=ouput_logits,
+                attention=outputs.attentions[-1],
+                instrn_tok_cnt=0,
+                prompt_tok_cnt=initial_tokens_count,
+            )
 
             # pre-process distribution
             next_token_scores = logits_processor(input_ids, next_token_logits)
@@ -146,15 +157,12 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
                         (outputs.decoder_hidden_states,) if self.config.is_encoder_decoder else (outputs.hidden_states,)
                     )
 
-            TensorUtils.log_details(next_token_logits, "next_token_logits")
-            TensorUtils.log_details(outputs.attentions, "outputs.attentions")
-            TensorUtils.log_details(outputs.hidden_states, "outputs.hidden_states")
-            TensorUtils.log_details(outputs.hidden_states[0], "outputs.hidden_states[0]")
-            TensorUtils.log_details(torch.stack(outputs.hidden_states, dim=1), "outputs.hidden_states tensor")
-            TensorUtils.log_details(next_token_scores, "next_token_scores")
-
-            # last_hidden_layer_attn: torch.FloatTensor = outputs["attentions"][-1]
-            # next_token_scores = self.pointer_generator_llama_utils.calc_final_distribution(next_token_scores, input_ids, last_hidden_layer_attn)
+            # TensorUtils.log_details(next_token_logits, "next_token_logits")
+            # TensorUtils.log_details(outputs.attentions, "outputs.attentions")
+            # TensorUtils.log_details(outputs.hidden_states, "outputs.hidden_states")
+            # TensorUtils.log_details(outputs.hidden_states[0], "outputs.hidden_states[0]")
+            # TensorUtils.log_details(torch.stack(outputs.hidden_states, dim=1), "outputs.hidden_states tensor")
+            # TensorUtils.log_details(next_token_scores, "next_token_scores")
 
             # token selection
             if do_sample:
