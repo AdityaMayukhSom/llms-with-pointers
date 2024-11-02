@@ -5,9 +5,11 @@ import torch.nn.functional as F
 
 
 class DivergenceUtils:
-    def kullback_leibler(self, P: torch.Tensor, Q: torch.Tensor, epsilon: float = 0.0000001):
-        elemwise_kl_divergence = P * (torch.log((P + epsilon) / (Q + epsilon)))
-        kl_divergence = torch.sum(elemwise_kl_divergence, dim=-1, keepdim=True, dtype=P.dtype)
+    def kullback_leibler(self, P: torch.Tensor, Q: torch.Tensor, epsilon: float = 0.000001):
+        log_P = torch.log(P + epsilon)
+        log_Q = torch.log(Q + epsilon)
+        kl_div_tensor = P * (log_P - log_Q)
+        kl_divergence = torch.sum(kl_div_tensor, dim=-1, keepdim=True, dtype=P.dtype)
         return kl_divergence
 
     def jensen_shannon(
@@ -48,9 +50,6 @@ class DivergenceUtils:
 
         kl_PM = self.kullback_leibler(P, M, epsilon)
         kl_QM = self.kullback_leibler(Q, M, epsilon)
-
-        # print("kl_PM", kl_PM)
-        # print("kl_QM", kl_QM)
 
         result = 0.5 * (kl_PM + kl_QM)  # Jensen Shannon Divergence
 
