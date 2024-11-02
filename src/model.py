@@ -6,6 +6,7 @@ from peft import LoraConfig
 from transformers import AutoTokenizer, BitsAndBytesConfig
 
 from src.config import ScriptArguments
+from src.dataset import generate_prompt_from_article
 from src.llama import PointerGeneratorLlamaForCausalLM
 
 
@@ -70,5 +71,11 @@ def create_and_prepare_model(config: ScriptArguments, device: torch.device):
         model.config.pad_token_id = tokenizer.eos_token_id
     if model.generation_config.pad_token_id is None:
         model.generation_config.pad_token_id = tokenizer.eos_token_id
+
+    instrn_without_article = generate_prompt_from_article(article="", max_words=config.requested_max_words)
+    instrn_toks = tokenizer(instrn_without_article, return_tensors="pt", padding=True, truncation=True)
+    instrn_tok_cnt = len(instrn_toks["input_ids"][0])
+    model.set_instrn_tok_cnt(instrn_tok_cnt)
+    del instrn_toks
 
     return model, tokenizer, peft_config
