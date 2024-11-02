@@ -78,6 +78,9 @@ def model_eval(config: ScriptArguments, device: torch.device):
         skip_special_tokens=True,
     )
 
+    del inputs
+    del outputs
+
     generated_abstracts = result_utils.parse_llm_outputs(full_input_texts, full_output_texts)
 
     if write_abstract_to_file and abstract_filepath is not None:
