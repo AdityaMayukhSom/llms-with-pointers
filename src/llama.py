@@ -23,7 +23,9 @@ from src.utils import PointerGeneratorLlamaUtils, TensorUtils
 class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
     def __init__(self, config: LlamaConfig):
         super(PointerGeneratorLlamaForCausalLM, self).__init__(config)
+        self._num_hidden_layers = config.num_hidden_layers
         self.pointer_generator_llama_utils = PointerGeneratorLlamaUtils(
+            vocab_size=self.vocab_size,
             num_hidden_layers=config.num_hidden_layers,
             dola_candidate_indices=[4, 8, 12, 16, 20],
         )
@@ -118,23 +120,31 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
 
             # forward pass to get next token
             outputs: CausalLMOutputWithPast = self(**model_inputs, return_dict=True)
+            TensorUtils.log_details(outputs.hidden_states[0], "outputs.hidden_states[0]")
+
+            # The first hidden state is the input embedding, so we take from the second state
+            layer_hidden_states = torch.stack(outputs.hidden_states[1:], dim=0).clone().float()
+            TensorUtils.log_details(layer_hidden_states, "layer_hidden_states")
+            layer_logits = self.lm_head(layer_hidden_states)
+            TensorUtils.log_details(layer_logits, "layer_logits")
 
             if synced_gpus and this_peer_finished:
                 continue  # don't waste resources running the code we don't need
 
             # Clone is needed to avoid keeping a hanging ref to outputs.logits which may be very large
             # for first iteration (the clone itself is always small)
-            ouput_logits = outputs.logits.clone()
+            next_token_logits = outputs.logits.clone()[:, -1, :].float()
+            TensorUtils.log_details(next_token_logits, "next_token_logits v1")
 
-            # next_token_logits = ouput_logits[:, -1, :].float()
-
-            next_token_logits = self.pointer_generator_llama_utils.calc_final_distribution(
+            next_token_logits = self.pointer_generator_llama_utils.calc_final_dist(
                 input_ids=input_ids,
-                logits=ouput_logits,
-                attention=outputs.attentions[-1],
+                logits=layer_logits,
+                attentions=outputs.attentions,
                 instrn_tok_cnt=0,
                 prompt_tok_cnt=initial_tokens_count,
             )
+
+            TensorUtils.log_details(next_token_logits, "next_token_logits v2")
 
             # pre-process distribution
             next_token_scores = logits_processor(input_ids, next_token_logits)
@@ -157,12 +167,7 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
                         (outputs.decoder_hidden_states,) if self.config.is_encoder_decoder else (outputs.hidden_states,)
                     )
 
-            # TensorUtils.log_details(next_token_logits, "next_token_logits")
-            # TensorUtils.log_details(outputs.attentions, "outputs.attentions")
-            # TensorUtils.log_details(outputs.hidden_states, "outputs.hidden_states")
-            # TensorUtils.log_details(outputs.hidden_states[0], "outputs.hidden_states[0]")
-            # TensorUtils.log_details(torch.stack(outputs.hidden_states, dim=1), "outputs.hidden_states tensor")
-            # TensorUtils.log_details(next_token_scores, "next_token_scores")
+            print("do sample", do_sample)
 
             # token selection
             if do_sample:
