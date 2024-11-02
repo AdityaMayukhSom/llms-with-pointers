@@ -142,7 +142,7 @@ class PointerGeneratorLlamaUtils:
         scores = F.softmax(logits, dim=-1)
         p_vocab = scores[:, -1, -1, :]
 
-        reduced_attn = self._reduce_multihead_attn(attentions[-1])
+        reduced_attn = self._reduce_multihead_attn(attentions[self.__dola_candidate_indices[0]])
 
         masked_attn = reduced_attn.clone(memory_format=torch.contiguous_format)
         masked_attn[:, :instrn_tok_cnt] = 0
