@@ -4,14 +4,16 @@ from typing import List, Optional, Tuple
 import torch
 import torch.nn.functional as F
 
-from src.utils import DivergenceUtils
+from .divergence_utils import DivergenceUtils
+from .tensor_utils import TensorUtils
 
 
 class PointerGeneratorLlamaUtils:
-    def __init__(self, *, num_hidden_layers: int, dola_candidate_indices: List[int]):
+    def __init__(self, *, vocab_size: int, num_hidden_layers: int, dola_candidate_indices: List[int]):
         if not num_hidden_layers:
             raise ValueError("Cannot have zero hidden layers, `num_hidden_layer` must be more than zero.")
 
+        self.__vocab_size = vocab_size
         self.__num_hidden_layers = num_hidden_layers
         self.__divergence_utils = DivergenceUtils()
 
@@ -37,14 +39,22 @@ class PointerGeneratorLlamaUtils:
 
         self.__dola_candidate_indices = sorted_dola_candidate_indices
 
-    def reduce_multihead_attention(self, multihead_attention: torch.Tensor):
-        return torch.mean(multihead_attention, dim=(1, 2), keepdim=False)
+    def _reduce_multihead_attn(self, multihead_attention: torch.Tensor):
+        # Only take attention for the latest generated token.
+        gen_token_attn = multihead_attention[:, :, -1, :]
 
-    def project_attention_on_vocab(
+        # Average out the attention over all the heads.
+        avg = torch.mean(gen_token_attn, dim=1, keepdim=True)
+
+        # Remove the second dimention, dim is passed so that it does not
+        # squeeze any other dimention in case those turn out to be one.
+        return torch.squeeze(avg, dim=1)
+
+    def _proj_attn_on_vocab(
         self,
         vocab_size: int,
         input_ids: torch.FloatTensor | torch.LongTensor,
-        reduced_attention: torch.FloatTensor,
+        masked_attn: torch.FloatTensor,
     ) -> torch.FloatTensor:
         """
         Converts position wise attention values into token wise attention distribution. More formally, puts positional attention value into the correspnding id's index in a tensor with length as vocab length. All the remaining position's values are initialized with zero.
@@ -56,36 +66,29 @@ class PointerGeneratorLlamaUtils:
             input_ids:
                 This is required because the attention values provided by the model are for each individual position in the input. Hence we can index the `vocab_projection` with the combination for `batch_indices`and `input_ids` to assign `reduced_attention` value for that particular position in `vocab_projection`.
 
-            reduced_attention:
-                attention value for each position in the input. Must have same shape as `input_ids`.
+            masked_attn:
+                attention value for each position in the input. Must have same shape as `input_ids`. The attention values outside user prompt should be masked with zeroes (i.e. both the model generated tokens and instruction) so that model is unable to point to tokens in those parts of the prompt.
         """
-        assert reduced_attention.shape == input_ids.shape
-        batch_size, seq_len = reduced_attention.shape
+        assert masked_attn.shape == input_ids.shape
+        batch_size, seq_len = masked_attn.shape
         proj_shape = (batch_size, vocab_size)
-        vocab_projection = torch.zeros(proj_shape, device=reduced_attention.device, dtype=reduced_attention.dtype)
+        vocab_projection = torch.zeros(proj_shape, device=masked_attn.device, dtype=masked_attn.dtype)
         batch_indices = torch.arange(batch_size).unsqueeze(1).expand(-1, seq_len)
-        vocab_projection[batch_indices, input_ids] = reduced_attention
+        vocab_projection[batch_indices, input_ids] = masked_attn
         return vocab_projection
 
-    def create_non_input_prompt_mask(
-        self, current_length: int, initial_tokens_count: int, batch_size: int
-    ) -> torch.Tensor:
-        single_mask = torch.arange(current_length) < initial_tokens_count
-        mask = single_mask.unsqueeze(0).expand(batch_size, -1)
-        return mask
-
-    def calc_copy_probability(self, *, scores: torch.Tensor):
-        anchor_layer = scores[:, -1, :]
+    def _calc_copy_proba(self, *, scores: torch.Tensor):
+        anchor_layer = scores[:, -1, :].unsqueeze(1)
         candidate_layers = scores[:, self.__dola_candidate_indices, :]
         divergences = self.__divergence_utils.jensen_shannon(anchor_layer, candidate_layers)
         return torch.mean(divergences)
 
-    def calc_final_distribution(
+    def calc_final_dist(
         self,
         *,
         input_ids: torch.LongTensor,
-        logits: Tuple[torch.Tensor],
-        attention: torch.FloatTensor | torch.HalfTensor,
+        logits: torch.Tensor,
+        attentions: Tuple[torch.FloatTensor | torch.HalfTensor],
         instrn_tok_cnt: int,
         prompt_tok_cnt: int,
     ):
@@ -124,20 +127,19 @@ class PointerGeneratorLlamaUtils:
             * :func:`PointerGeneratorLlamaForCausalLM.project_attention_on_vocab`
         """
         scores = F.softmax(logits, dim=-1)
-        p_vocab = scores[:, -1, :]
+        p_vocab = scores[:, -1, -1, :]
 
-        reduced_attn = self.reduce_multihead_attention(attention)
+        reduced_attn = self._reduce_multihead_attn(attentions[-1])
 
-        batch_size, current_tokens_length = reduced_attn.size()
         masked_attn = reduced_attn.clone(memory_format=torch.contiguous_format)
-        masked_attn[:, :instrn_tok_cnt, :] = 0
-        masked_attn[:, prompt_tok_cnt:, :] = 0
 
-        only_input_mask = self.create_non_input_prompt_mask(current_tokens_length, instrn_tok_cnt, batch_size)
-        attn_projection = self.project_attention_on_vocab(self.vocab_size, input_ids, masked_attn)
-        p_doc = attn_projection / torch.sum(attn_projection, dim=-1, keepdim=True)
+        masked_attn[:, :instrn_tok_cnt] = 0
+        masked_attn[:, prompt_tok_cnt:] = 0
 
-        p_copy = self.calc_copy_probability(logits=logits)
+        attn_proj = self._proj_attn_on_vocab(self.__vocab_size, input_ids, masked_attn)
+        p_doc = attn_proj / torch.sum(attn_proj, dim=-1, keepdim=True)
 
-        p_generation = p_copy * p_doc + (1 - p_copy) * p_vocab
-        return p_generation
+        p_copy = self._calc_copy_proba(scores=scores)
+
+        p_gen = p_copy * p_doc + (1 - p_copy) * p_vocab
+        return p_gen
