@@ -78,10 +78,23 @@ class PointerGeneratorLlamaUtils:
         return vocab_projection
 
     def _calc_copy_proba(self, *, scores: torch.Tensor):
-        anchor_layer = scores[:, -1, :].unsqueeze(1)
-        candidate_layers = scores[:, self.__dola_candidate_indices, :]
+        # Second dimention have `:` because `dola_candiate_indices` will keep the dimention of
+        # second layer in the `candiate_layers` too, but the third index is only `-1` without `:`
+        # because we only care about the latest generated token and can discard previous tokens.
+        anchor_layer = scores[:, -1:, -1, :]
+        candidate_layers = scores[:, self.__dola_candidate_indices, -1, :]
+
         divergences = self.__divergence_utils.jensen_shannon(anchor_layer, candidate_layers)
-        return torch.mean(divergences)
+
+        # Do not directly squeeze with keepdim=False as that leads to unexpected errors by
+        # squeezing the batch dimention in case batch dimention is one which is most of the
+        # times during evaluation, hence mean first with dimention, then selectively squeeze
+        average_divergence = torch.mean(divergences, dim=1, keepdim=True).squeeze(dim=1)
+
+        del divergences
+        del anchor_layer
+        del candidate_layers
+        return average_divergence
 
     def calc_final_dist(
         self,
@@ -132,14 +145,17 @@ class PointerGeneratorLlamaUtils:
         reduced_attn = self._reduce_multihead_attn(attentions[-1])
 
         masked_attn = reduced_attn.clone(memory_format=torch.contiguous_format)
-
         masked_attn[:, :instrn_tok_cnt] = 0
         masked_attn[:, prompt_tok_cnt:] = 0
 
         attn_proj = self._proj_attn_on_vocab(self.__vocab_size, input_ids, masked_attn)
         p_doc = attn_proj / torch.sum(attn_proj, dim=-1, keepdim=True)
-
         p_copy = self._calc_copy_proba(scores=scores)
-
         p_gen = p_copy * p_doc + (1 - p_copy) * p_vocab
+
+        del p_doc
+        del p_copy
+        del p_vocab
+        del masked_attn
+        del attn_proj
         return p_gen
