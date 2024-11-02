@@ -5,10 +5,9 @@ import torch.nn.functional as F
 
 
 class DivergenceUtils:
-    def kullback_leibler(self, P: torch.Tensor, Q: torch.Tensor, epsilon: float = 0.000001):
-        log_P = torch.log(P + epsilon)
-        log_Q = torch.log(Q + epsilon)
-        kl_div_tensor = P * (log_P - log_Q)
+    def kullback_leibler(self, P: torch.Tensor, Q: torch.Tensor):
+        epsilon = torch.finfo(P.dtype).eps
+        kl_div_tensor = P * (torch.log(P + epsilon) - torch.log(Q + epsilon))
         kl_divergence = torch.sum(kl_div_tensor, dim=-1, keepdim=True, dtype=P.dtype)
         return kl_divergence
 
@@ -18,7 +17,6 @@ class DivergenceUtils:
         Q: torch.Tensor,
         return_value: Literal["distance", "divergence"] = "distance",
         is_probability: bool = True,
-        epsilon: float = 1e-8,
     ):
         """
         Computes the Jensen-Shannon Divergence or Distance between two sets of logits or probability distributions.
@@ -48,8 +46,8 @@ class DivergenceUtils:
 
         M = 0.5 * (P + Q)
 
-        kl_PM = self.kullback_leibler(P, M, epsilon)
-        kl_QM = self.kullback_leibler(Q, M, epsilon)
+        kl_PM = self.kullback_leibler(P, M)
+        kl_QM = self.kullback_leibler(Q, M)
 
         result = 0.5 * (kl_PM + kl_QM)  # Jensen Shannon Divergence
 
