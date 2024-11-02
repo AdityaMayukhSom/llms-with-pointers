@@ -27,7 +27,7 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
         self.pointer_generator_llama_utils = PointerGeneratorLlamaUtils(
             vocab_size=self.vocab_size,
             num_hidden_layers=config.num_hidden_layers,
-            dola_candidate_indices=[4, 8, 12, 16, 20],
+            dola_candidate_indices=[4, 20],
         )
 
     def _sample(
@@ -120,13 +120,14 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
 
             # forward pass to get next token
             outputs: CausalLMOutputWithPast = self(**model_inputs, return_dict=True)
-            TensorUtils.log_details(outputs.hidden_states[0], "outputs.hidden_states[0]")
 
             # The first hidden state is the input embedding, so we take from the second state
-            layer_hidden_states = torch.stack(outputs.hidden_states[1:], dim=0).clone().float()
-            TensorUtils.log_details(layer_hidden_states, "layer_hidden_states")
+            # we stack them using the second dimention as first dimention is batch size
+            # hence layer_hidden_states shape (batch_size, decoder_hidden_layers, generated_tokens, hidden_dim)
+            layer_hidden_states = torch.stack(outputs.hidden_states[1:], dim=1).clone()
+
+            # layer_logits shape (batch_size, decoder_hidden_layers, generated_tokens, vocab_size)
             layer_logits = self.lm_head(layer_hidden_states)
-            TensorUtils.log_details(layer_logits, "layer_logits")
 
             if synced_gpus and this_peer_finished:
                 continue  # don't waste resources running the code we don't need
@@ -134,7 +135,7 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
             # Clone is needed to avoid keeping a hanging ref to outputs.logits which may be very large
             # for first iteration (the clone itself is always small)
             next_token_logits = outputs.logits.clone()[:, -1, :].float()
-            TensorUtils.log_details(next_token_logits, "next_token_logits v1")
+            TensorUtils.inspect_details(next_token_logits, "next_token_logits v1")
 
             next_token_logits = self.pointer_generator_llama_utils.calc_final_dist(
                 input_ids=input_ids,
@@ -144,7 +145,7 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
                 prompt_tok_cnt=initial_tokens_count,
             )
 
-            TensorUtils.log_details(next_token_logits, "next_token_logits v2")
+            TensorUtils.inspect_details(next_token_logits, "next_token_logits v2")
 
             # pre-process distribution
             next_token_scores = logits_processor(input_ids, next_token_logits)
@@ -166,8 +167,6 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
                     decoder_hidden_states += (
                         (outputs.decoder_hidden_states,) if self.config.is_encoder_decoder else (outputs.hidden_states,)
                     )
-
-            print("do sample", do_sample)
 
             # token selection
             if do_sample:
@@ -200,6 +199,9 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
             # This is needed to properly delete outputs.logits which may be very large for first iteration
             # Otherwise a reference to outputs is kept which keeps the logits alive in the next iteration
             del outputs
+            del next_token_logits
+            del next_token_scores
+            del layer_hidden_states
 
         if streamer is not None:
             streamer.end()
