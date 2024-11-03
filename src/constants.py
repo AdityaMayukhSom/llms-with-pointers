@@ -14,7 +14,7 @@ class MessageTemplates:
     """
 
     SYSTEM_MESSAGE = """\
-    Summarize the following article strictly within {max_words} words. Focus solely on the main points, avoiding unnecessary details or commentary. Do not exceed {max_words} words under any circumstances. Include important facts mentioned in the article. Provide only the abstract text without any extra comments or explanations The output should only contain the summary, and nothing else. 
+    Summarize the following article in a single paragraph, strictly within {max_words} words. Focus only on the main facts, key points, and essential details from the article, avoiding any unnecessary details, commentary, or opinions. Do not begin with introductory phrases like 'Here is a summary of the article,' and ensure the summary does not exceed {max_words} words. Provide only the abstract text in a concise, fact-focused format, directly reflecting the article's content without extra explanations. The generated summary should be a single paragraph that captures the main points clearly and precisely and should be factually correct according to the article provided.
     """
 
     USER_MESSAGE = "[text summarization]: {article}"
