@@ -51,7 +51,7 @@ class TestResultsUtils(ResultsUtils):
         if not os.path.isdir(result_dir_path):
             raise NotADirectoryError(f"Path {result_dir_path} is not a directory. Please provide a directory path.")
 
-    def save_result(self, article: str, abstract: str) -> None:
+    def save_result(self, article: str, generated_abstract: str, original_abstract: str) -> None:
         h = hashlib.md5(usedforsecurity=False)
         h.update(article.encode(encoding="utf-8"))
         article_hash = h.hexdigest()
@@ -62,7 +62,8 @@ class TestResultsUtils(ResultsUtils):
         time_str = str(current_time).replace(":", "-").replace(" ", "_")
 
         article_filename = f"{time_str}_{article_hash}_article.txt"
-        abstract_filename = f"{time_str}_{article_hash}_abstract.txt"
+        gen_abstract_filename = f"{time_str}_{article_hash}_gen_abstract.txt"
+        ori_abstract_filename = f"{time_str}_{article_hash}_ori_abstract.txt"
         try:
             with open(os.path.join(self.result_dir, article_filename), "w", encoding="utf-8") as article_file:
                 article_file.write(article)
@@ -70,26 +71,33 @@ class TestResultsUtils(ResultsUtils):
             logger.error(f"ERRNO {e.errno}. {e.strerror}. Could not write ARTICLE file with hash {article_hash}")
 
         try:
-            with open(os.path.join(self.result_dir, abstract_filename), "w", encoding="utf-8") as abstract_file:
-                abstract_file.write(abstract)
+            with open(os.path.join(self.result_dir, gen_abstract_filename), "w", encoding="utf-8") as gen_abstract_file:
+                gen_abstract_file.write(generated_abstract)
         except IOError as e:
-            logger.error(f"ERRNO {e.errno}. {e.strerror}. Could not write ABSTRACT file with hash {article_hash}")
+            logger.error(f"ERRNO {e.errno}. {e.strerror}. Could not write GEN ABSTRACT file with hash {article_hash}")
 
-    def save_result_list(self, articles: List[str], generated_abstracts: List[str]):
-        for article, abstract in zip(articles, generated_abstracts):
-            self.thread_pool_executor.submit(self.save_result, article, abstract)
+        try:
+            with open(os.path.join(self.result_dir, ori_abstract_filename), "w", encoding="utf-8") as ori_abstract_file:
+                ori_abstract_file.write(original_abstract)
+        except IOError as e:
+            logger.error(f"ERRNO {e.errno}. {e.strerror}. Could not write ORI ABSTRACT file with hash {article_hash}")
+
+    def save_result_list(self, articles: List[str], generated_abstracts: List[str], original_abstracts: List[str]):
+        for article, generated_abstract, original_abstract in zip(articles, generated_abstracts, original_abstracts):
+            self.thread_pool_executor.submit(self.save_result, article, generated_abstract, original_abstract)
 
     def parse_and_save(
         self,
         articles: List[str],
         prompts_without_special_tokens: List[str],
         llm_outputs_without_special_tokens: List[str],
+        original_abstracts: List[str],
     ):
         generated_abstracts = self.parse_llm_outputs(
             prompts_without_special_tokens,
             llm_outputs_without_special_tokens,
         )
-        self.save_result_list(articles, generated_abstracts)
+        self.save_result_list(articles, generated_abstracts, original_abstracts)
 
     def shutdown(self, wait: bool, cancel_futures: bool):
         self.thread_pool_executor.shutdown(wait=wait, cancel_futures=cancel_futures)

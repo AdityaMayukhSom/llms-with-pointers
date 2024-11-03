@@ -84,6 +84,7 @@ def process_test_batch(
         articles,
         prompts_without_special_tokens,
         llm_outputs_without_special_tokens,
+        abstracts,
     )
 
     del inputs
