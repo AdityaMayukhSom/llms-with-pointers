@@ -25,7 +25,7 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
         super(PointerGeneratorLlamaForCausalLM, self).__init__(config)
         self._instrn_tok_cnt = 0
         self._num_hidden_layers = config.num_hidden_layers
-        self.pointer_generator_llama_utils = PointerGeneratorLlamaUtils(
+        self._llama_utils = PointerGeneratorLlamaUtils(
             vocab_size=self.vocab_size,
             num_hidden_layers=config.num_hidden_layers,
             dola_candidate_indices=[16, 20, 24],
@@ -125,24 +125,34 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
             # forward pass to get next token
             outputs: CausalLMOutputWithPast = self(**model_inputs, return_dict=True)
 
-            # The first hidden state is the input embedding, so we take from the second state
-            # we stack them using the second dimention as first dimention is batch size
-            # hence layer_hidden_states shape (batch_size, decoder_hidden_layers, generated_tokens, hidden_dim)
-            layer_hidden_states = torch.stack(outputs.hidden_states[1:], dim=1).clone()
-
-            # layer_logits shape (batch_size, decoder_hidden_layers, generated_tokens, vocab_size)
-            layer_logits = self.lm_head(layer_hidden_states)
-
             if synced_gpus and this_peer_finished:
                 continue  # don't waste resources running the code we don't need
+
+            # The zeroth hidden state is the input embedding, we stack them using the
+            # second dimention as first dimention is batch size hence layer_hidden_states
+            # shape (batch_size, (decoder_hidden_layers + 1), generated_tokens, hidden_dim)
+            layer_hidden_states = torch.stack(outputs.hidden_states, dim=1).clone()
+
+            # Second dimention have `:` because `dola_candiate_indices` will keep the dimention of
+            # second layer in the `candiate_layers` too, but the third index is only `-1` without `:`
+            # because we only care about the latest generated token and can discard previous tokens.
+            llama_hidden_state = layer_hidden_states[:, -1:, -1, :]
+            dola_hidden_states = layer_hidden_states[:, self._llama_utils._dola_candidate_indices, -1, :]
+
+            # layer_logits shape (batch_size, decoder_hidden_layers, generated_tokens, vocab_size)
+            llama_logit = self.lm_head(llama_hidden_state)
+            dola_logits = self.lm_head(dola_hidden_states)
+
+            del layer_hidden_states
 
             # Clone is needed to avoid keeping a hanging ref to outputs.logits which may be very large
             # for first iteration (the clone itself is always small)
             next_token_logits = outputs.logits.clone()[:, -1, :].float()
 
-            next_token_logits = self.pointer_generator_llama_utils.calc_final_dist(
+            next_token_logits = self._llama_utils.calc_final_dist(
                 input_ids=input_ids,
-                logits=layer_logits,
+                llama_logit=llama_logit,
+                dola_logits=dola_logits,
                 attentions=outputs.attentions,
                 instrn_tok_cnt=self._instrn_tok_cnt,
                 prompt_tok_cnt=initial_tokens_count,
@@ -150,6 +160,8 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
 
             # pre-process distribution
             next_token_scores = logits_processor(input_ids, next_token_logits)
+            # set all value set to -inf by logits_processor to zero
+            next_token_scores[next_token_scores < 0] = 0
 
             # Store scores, attentions and hidden_states when required
             if return_dict_in_generate:
@@ -171,9 +183,10 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
 
             # token selection
             if do_sample:
-                probs = nn.functional.softmax(next_token_scores, dim=-1)
+                # probs = nn.functional.softmax(next_token_scores, dim=-1)
                 # TODO (joao): this OP throws "skipping cudagraphs due to ['incompatible ops']", find solution
-                next_tokens = torch.multinomial(probs, num_samples=1).squeeze(1)
+                # next_tokens = torch.multinomial(probs, num_samples=1).squeeze(1)
+                next_tokens = torch.multinomial(next_token_scores, num_samples=1).squeeze(1)
             else:
                 next_tokens = torch.argmax(next_token_scores, dim=-1)
 
@@ -202,7 +215,6 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
             del outputs
             del next_token_logits
             del next_token_scores
-            del layer_hidden_states
 
         if streamer is not None:
             streamer.end()

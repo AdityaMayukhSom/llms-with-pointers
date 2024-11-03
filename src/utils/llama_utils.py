@@ -19,7 +19,7 @@ class PointerGeneratorLlamaUtils:
 
         # Declaration is done to satisfy the intellsense. Otherwise
         # this variable was not shown in intellisense suggestions
-        self.__dola_candidate_indices: List[int] = []
+        self._dola_candidate_indices: List[int] = []
         self.set_dola_candiate_indices(dola_candidate_indices)
 
     def set_dola_candiate_indices(self, dola_candidate_indices: List[int]):
@@ -37,7 +37,7 @@ class PointerGeneratorLlamaUtils:
             """
             raise ValueError(cleandoc(err_msg))
 
-        self.__dola_candidate_indices = sorted_dola_candidate_indices
+        self._dola_candidate_indices = sorted_dola_candidate_indices
 
     def _reduce_multihead_attn(self, multihead_attention: torch.Tensor):
         # Only take attention for the latest generated token.
@@ -77,30 +77,12 @@ class PointerGeneratorLlamaUtils:
         vocab_projection[batch_indices, input_ids] = masked_attn
         return vocab_projection
 
-    def _calc_copy_proba(self, *, scores: torch.Tensor):
-        # Second dimention have `:` because `dola_candiate_indices` will keep the dimention of
-        # second layer in the `candiate_layers` too, but the third index is only `-1` without `:`
-        # because we only care about the latest generated token and can discard previous tokens.
-        anchor_layer = scores[:, -1:, -1, :]
-        candidate_layers = scores[:, self.__dola_candidate_indices, -1, :]
-
-        divergences = self.__divergence_utils.jensen_shannon(anchor_layer, candidate_layers)
-
-        # Do not directly squeeze with keepdim=False as that leads to unexpected errors by
-        # squeezing the batch dimention in case batch dimention is one which is most of the
-        # times during evaluation, hence mean first with dimention, then selectively squeeze
-        average_divergence = torch.mean(divergences, dim=1, keepdim=True).squeeze(dim=1)
-
-        del divergences
-        del anchor_layer
-        del candidate_layers
-        return average_divergence
-
     def calc_final_dist(
         self,
         *,
         input_ids: torch.LongTensor,
-        logits: torch.Tensor,
+        llama_logit: torch.Tensor,
+        dola_logits: torch.Tensor,
         attentions: Tuple[torch.FloatTensor | torch.HalfTensor],
         instrn_tok_cnt: int,
         prompt_tok_cnt: int,
@@ -139,23 +121,34 @@ class PointerGeneratorLlamaUtils:
         See:
             * :func:`PointerGeneratorLlamaForCausalLM.project_attention_on_vocab`
         """
-        scores = F.softmax(logits, dim=-1)
-        p_vocab = scores[:, -1, -1, :]
+        batch_size = llama_logit.size(dim=0)
+        llama_score = F.softmax(llama_logit, dim=-1)  # llama_score is the p_vocab
+        dola_scores = F.softmax(dola_logits, dim=-1)
 
-        reduced_attn = self._reduce_multihead_attn(attentions[self.__dola_candidate_indices[0]])
+        divergences = self.__divergence_utils.jensen_shannon(llama_score, dola_scores)
 
+        # Do not directly squeeze with keepdim=False as that leads to unexpected errors by
+        # squeezing the batch dimention in case batch dimention is one which is most of the
+        # times during evaluation, hence mean first with dimention, then selectively squeeze
+        p_copy = 0.25 * torch.min(divergences, dim=1, keepdim=True).values.squeeze(dim=1)
+        contrasting_layer_indices = torch.argmin(divergences, dim=1, keepdim=True).squeeze(dim=(1, 2)).tolist()
+
+        dola_attentions = []
+        for batch_idx in range(batch_size):
+            dola_attentions.append(attentions[contrasting_layer_indices[batch_idx]][batch_idx, :, :, :])
+        dola_attentions = torch.stack(dola_attentions, dim=0).to(llama_score.device)
+
+        reduced_attn = self._reduce_multihead_attn(dola_attentions)
         masked_attn = reduced_attn.clone(memory_format=torch.contiguous_format)
         masked_attn[:, :instrn_tok_cnt] = 0
         masked_attn[:, prompt_tok_cnt:] = 0
+        del reduced_attn
 
         attn_proj = self._proj_attn_on_vocab(self.__vocab_size, input_ids, masked_attn)
-        p_doc = attn_proj / torch.sum(attn_proj, dim=-1, keepdim=True)
-        p_copy = self._calc_copy_proba(scores=scores)
-        p_gen = p_copy * p_doc + (1 - p_copy) * p_vocab
 
-        del p_doc
-        del p_copy
-        del p_vocab
-        del masked_attn
-        del attn_proj
+        # average out the attn projection into a probability summing up to one
+        p_doc = attn_proj / torch.sum(attn_proj, dim=-1, keepdim=True)
+
+        p_gen = p_copy * p_doc + (1 - p_copy) * llama_score.squeeze(dim=1)
+
         return p_gen
