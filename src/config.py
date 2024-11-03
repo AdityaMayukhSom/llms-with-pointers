@@ -79,7 +79,7 @@ class ScriptArguments:
     )
 
     per_device_train_batch_size: int = field(default=1)
-    per_device_test_batch_size: int = field(default=2)
+    per_device_test_batch_size: int = field(default=1)
     per_device_eval_batch_size: int = field(default=4)
     gradient_accumulation_steps: int = field(default=17)
     learning_rate: float = field(default=3e-4)
