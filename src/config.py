@@ -218,21 +218,21 @@ class ScriptArguments:
     # ~~~~~~~~~~~~~~~~~~~~~~ Generation Configurations ~~~~~~~~~~~~~~~~~~~~~~
 
     requested_max_words: int = field(
-        default=80,
+        default=140,
         metadata={
             "help": "This number specifies the target word count for the abstract that the model should aim to generate."
         },
     )
 
     max_tokens_to_generate_for_abstract: int = field(
-        default=120,
+        default=200,
         metadata={
             "help": "The maximum number of tokens the model is allowed to generate for the abstract. This value includes special tokens and may exceed the target word count."
         },
     )
 
     repetition_penalty: float = field(
-        default=1.3,
+        default=1.2,
         metadata={
             "help": "A penalty applied to discourage the model from repeating the same tokens during generation. Values greater than 1.0 increase the penalty."
         },
