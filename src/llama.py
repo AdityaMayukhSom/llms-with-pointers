@@ -143,6 +143,8 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
             llama_logit = self.lm_head(llama_hidden_state)
             dola_logits = self.lm_head(dola_hidden_states)
 
+            del llama_hidden_state
+            del dola_hidden_states
             del layer_hidden_states
 
             # Clone is needed to avoid keeping a hanging ref to outputs.logits which may be very large
@@ -157,6 +159,9 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
                 instrn_tok_cnt=self._instrn_tok_cnt,
                 prompt_tok_cnt=initial_tokens_count,
             )
+
+            del llama_logit
+            del dola_logits
 
             # pre-process distribution
             next_token_scores = logits_processor(input_ids, next_token_logits)
@@ -213,12 +218,11 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
             # This is needed to properly delete outputs.logits which may be very large for first iteration
             # Otherwise a reference to outputs is kept which keeps the logits alive in the next iteration
             del outputs
-            del llama_logit
-            del dola_logits
-            del llama_hidden_state
-            del dola_hidden_states
+
             del next_token_logits
             del next_token_scores
+
+        del unfinished_sequences
 
         if streamer is not None:
             streamer.end()

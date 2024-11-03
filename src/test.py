@@ -1,3 +1,4 @@
+import gc
 import os
 from typing import Dict, Union
 
@@ -93,6 +94,11 @@ def process_test_batch(
     del articles
     del abstracts
     del inputs
+    del outputs.sequences
+    del outputs.logits
+    del outputs.attentions
+    del outputs.hidden_states
+    del outputs.past_key_values
     del outputs
 
 
@@ -138,12 +144,7 @@ def model_test(config: ScriptArguments, device: torch.device):
             streamer=streamer,
             test_result_utils=test_result_utils,
         )
-
-        # logger.info("output runtime type: {}".format(type(outputs).__name__))
-        # logger.info("output.sequences runtime shape: {}".format(outputs.sequences.shape))
-        # logger.info(outputs.sequences[:, inputs["input_ids"].shape[1] :].shape)
-        # text = tokenizer.decode(outputs.sequences[0], skip_special_tokens=True)
-        # print(full_output_texts[0])
-        # print("~" * 120)
+        gc.collect()
+        torch.cuda.empty_cache()
 
     test_result_utils.shutdown(wait=True, cancel_futures=True)
