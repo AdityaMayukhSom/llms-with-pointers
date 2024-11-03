@@ -14,10 +14,10 @@ class MessageTemplates:
     """
 
     SYSTEM_MESSAGE = """\
-    Summarize the following article strictly within {max_words} words. Focus solely on the main points, avoiding unnecessary details or commentary. Do not exceed {max_words} words under any circumstances. Provide only the abstract text without any extra comments or explanations.
+    Summarize the following article strictly within {max_words} words. Focus solely on the main points, avoiding unnecessary details or commentary. Do not exceed {max_words} words under any circumstances. Include important facts mentioned in the article. Provide only the abstract text without any extra comments or explanations The output should only contain the summary, and nothing else. 
     """
 
-    USER_MESSAGE = "{article}"
+    USER_MESSAGE = "[text summarization]: {article}"
 
 
 @enum.unique
