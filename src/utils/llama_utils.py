@@ -130,8 +130,8 @@ class PointerGeneratorLlamaUtils:
         # Do not directly squeeze with keepdim=False as that leads to unexpected errors by
         # squeezing the batch dimention in case batch dimention is one which is most of the
         # times during evaluation, hence mean first with dimention, then selectively squeeze
-        p_copy = 0.25 * torch.min(divergences, dim=1, keepdim=True).values.squeeze(dim=1)
-        contrasting_layer_indices = torch.argmin(divergences, dim=1, keepdim=True).squeeze(dim=(1, 2)).tolist()
+        p_copy = 0.1 * torch.max(divergences, dim=1, keepdim=True).values.squeeze(dim=1)
+        contrasting_layer_indices = torch.argmax(divergences, dim=1, keepdim=True).squeeze(dim=(1, 2)).tolist()
 
         dola_attentions = []
         for batch_idx in range(batch_size):
