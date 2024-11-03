@@ -42,7 +42,7 @@ def model_eval(config: ScriptArguments, device: torch.device):
     # this feature is only for evaluation during development and doesn't bring any functionality
     # as we are only saving the zeroth index of eval text, hence only one eval text will be saved
     # that is the expected behaviour as we are simply multiplying same input multiple times.
-    dynamic_batch_size = 2
+    dynamic_batch_size = 1
 
     prompts = [generate_prompt_from_article(article, max_words=config.requested_max_words)] * dynamic_batch_size
 
