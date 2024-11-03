@@ -232,7 +232,7 @@ class ScriptArguments:
     )
 
     repetition_penalty: float = field(
-        default=1.2,
+        default=1.3,
         metadata={
             "help": "A penalty applied to discourage the model from repeating the same tokens during generation. Values greater than 1.0 increase the penalty."
         },
