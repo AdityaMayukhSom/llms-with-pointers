@@ -84,7 +84,8 @@ class TestResultsUtils(ResultsUtils):
 
     def save_result_list(self, articles: List[str], generated_abstracts: List[str], original_abstracts: List[str]):
         for article, generated_abstract, original_abstract in zip(articles, generated_abstracts, original_abstracts):
-            self.thread_pool_executor.submit(self.save_result, article, generated_abstract, original_abstract)
+            # self.thread_pool_executor.submit(self.save_result, article, generated_abstract, original_abstract)
+            self.save_result(article, generated_abstract, original_abstract)
 
     def parse_and_save(
         self,

@@ -132,6 +132,7 @@ class PointerGeneratorLlamaUtils:
         # times during evaluation, hence mean first with dimention, then selectively squeeze
         p_copy = 0.1 * torch.max(divergences, dim=1, keepdim=True).values.squeeze(dim=1)
         contrasting_layer_indices = torch.argmax(divergences, dim=1, keepdim=True).squeeze(dim=(1, 2)).tolist()
+        del divergences
 
         dola_attentions = []
         for batch_idx in range(batch_size):
@@ -150,5 +151,11 @@ class PointerGeneratorLlamaUtils:
         p_doc = attn_proj / torch.sum(attn_proj, dim=-1, keepdim=True)
 
         p_gen = p_copy * p_doc + (1 - p_copy) * llama_score.squeeze(dim=1)
+
+        del llama_score
+        del dola_scores
+        del dola_attentions
+        del attn_proj
+        del p_doc
 
         return p_gen

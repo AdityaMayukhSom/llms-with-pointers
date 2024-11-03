@@ -147,7 +147,7 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
 
             # Clone is needed to avoid keeping a hanging ref to outputs.logits which may be very large
             # for first iteration (the clone itself is always small)
-            next_token_logits = outputs.logits.clone()[:, -1, :].float()
+            # next_token_logits = outputs.logits.clone()[:, -1, :].float()
 
             next_token_logits = self._llama_utils.calc_final_dist(
                 input_ids=input_ids,
@@ -213,6 +213,10 @@ class PointerGeneratorLlamaForCausalLM(LlamaForCausalLM):
             # This is needed to properly delete outputs.logits which may be very large for first iteration
             # Otherwise a reference to outputs is kept which keeps the logits alive in the next iteration
             del outputs
+            del llama_logit
+            del dola_logits
+            del llama_hidden_state
+            del dola_hidden_states
             del next_token_logits
             del next_token_scores
 
