@@ -1,17 +1,17 @@
-### LLMs With Pointer
+### LLMs With Pointers
 
 The following code was run on a Windows 11 desktop with NVIDIA RTX 4060 Ti with 8GB of VRAM and 32 GB of memory on an intel i7 13th generation processor. Additionally, this code can also be run on Google Colab with the provided `notebook.ipynb` file. 
 
-#### 1. Install Scoop (Windows Package Manager)
+#### 1. Install [Scoop](https://scoop.sh/) (Windows Package Manager)
 
 Open PowerShell as Administrator and run:
 
 ```powershell
-Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-irm get.scoop.sh | iex
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
 ```
 
-#### 2. Install Pipx and Poetry
+#### 2. Install [Pipx](https://pipx.pypa.io/stable/) and [Poetry](https://python-poetry.org/)
 
 Install Pipx with Scoop:
 
@@ -51,8 +51,9 @@ poetry install
 poetry shell
 ```
 
-Then use the following commands:
+The first command will create a new folder named `.venv` in the root directory and install the packages. The second command starts the virtual environment in the current powershell session.
 
+Then use the following commands:
 
 | Task         | Command               |
 | ------------ | --------------------- |
