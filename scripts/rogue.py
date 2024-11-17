@@ -2,11 +2,18 @@ import os
 from multiprocessing import Pool
 from typing import Iterable, Literal, Tuple
 
+import nltk
 import pandas as pd
 from loguru import logger
+from nltk.tokenize import word_tokenize
+from nltk.translate.bleu_score import SmoothingFunction, sentence_bleu
 from rouge_score import rouge_scorer
 
 TypeScore = dict[Literal["rouge1", "rouge2", "rougeL"], rouge_scorer.scoring.Score]
+
+
+def create_bleu_input(target: str, prediction: str):
+    return [word_tokenize(prediction)], word_tokenize(target)
 
 
 def get_result_files(base_dir: str) -> Iterable[Tuple[str, str, str]]:
@@ -29,15 +36,19 @@ def get_result_files(base_dir: str) -> Iterable[Tuple[str, str, str]]:
 
 
 def compute_rouge(files: Tuple[str, str, str]):
+    # https://corejava25hours.com/2024/06/15/9-a-automatic-evaluation-metrics-bleu-rouge-meteor/
+    # nltk.download("punkt_tab")
+
     rouge_types = ["rouge1", "rouge2", "rougeL"]
     scorer = rouge_scorer.RougeScorer(rouge_types=rouge_types, use_stemmer=True)
+    metric_count = 10  # 3 for ROUGE-1, 3 for ROUGE-2, 3 for ROUGE-L and 1 for BLEU
 
     base_dir = files[0]
     abs_file_name = files[1]
     ori_file_name = files[2]
     abs_file_path = os.path.abspath(os.path.join(base_dir, abs_file_name))
     ori_file_path = os.path.abspath(os.path.join(base_dir, ori_file_name))
-    invalid_result = [abs_file_name] + [-1] * 8
+    invalid_result = [abs_file_name] + [-1] * metric_count
 
     try:
         abs_file = open(abs_file_path, "r", encoding="UTF-8")
@@ -56,10 +67,15 @@ def compute_rouge(files: Tuple[str, str, str]):
         return invalid_result
 
     try:
+
         scores: TypeScore = scorer.score(original, abstract)
         rouge1 = scores["rouge1"]
         rouge2 = scores["rouge2"]
         rougeL = scores["rougeL"]
+
+        bleu_original, bleu_abstract = create_bleu_input(original, abstract)
+        smooth = SmoothingFunction().method4
+        bleu_score = sentence_bleu(bleu_original, bleu_abstract, smoothing_function=smooth)
 
         return [
             abs_file_name,
@@ -72,6 +88,7 @@ def compute_rouge(files: Tuple[str, str, str]):
             rougeL.precision,
             rougeL.recall,
             rougeL.fmeasure,
+            bleu_score,
         ]
     except ValueError as e:
         logger.error("invalid rouge type found")
@@ -90,10 +107,11 @@ if __name__ == "__main__":
         "ROUGE-L Precision",
         "ROUGE-L Recall",
         "ROUGE-L F-Measure",
+        "BLEU Score",
     ]
 
     in_dir = "./results_test"
-    out_file = "./rouge_data/generated_v2.csv"
+    out_file = "./rouge_data/results.csv"
     pool_chunk_size = 1024
 
     os.makedirs(os.path.dirname(out_file), exist_ok=True)
