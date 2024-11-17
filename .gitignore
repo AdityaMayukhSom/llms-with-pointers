@@ -8,4 +8,5 @@
 **/data/
 **/.mypy_cache/
 **/results_test/
+**/rouge_data/
 **/temp/
