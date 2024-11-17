@@ -36,12 +36,9 @@ def get_result_files(base_dir: str) -> Iterable[Tuple[str, str, str]]:
 
 
 def compute_rouge(files: Tuple[str, str, str]):
-    # https://corejava25hours.com/2024/06/15/9-a-automatic-evaluation-metrics-bleu-rouge-meteor/
-    # nltk.download("punkt_tab")
-
     rouge_types = ["rouge1", "rouge2", "rougeL"]
     scorer = rouge_scorer.RougeScorer(rouge_types=rouge_types, use_stemmer=True)
-    metric_count = 10  # 3 for ROUGE-1, 3 for ROUGE-2, 3 for ROUGE-L and 1 for BLEU
+    metric_count = 4  # 1 for ROUGE-1, 1 for ROUGE-2, 1 for ROUGE-L and 1 for BLEU
 
     base_dir = files[0]
     abs_file_name = files[1]
@@ -79,14 +76,14 @@ def compute_rouge(files: Tuple[str, str, str]):
 
         return [
             abs_file_name,
-            rouge1.precision,
-            rouge1.recall,
+            # rouge1.precision,
+            # rouge1.recall,
             rouge1.fmeasure,
-            rouge2.precision,
-            rouge2.recall,
+            # rouge2.precision,
+            # rouge2.recall,
             rouge2.fmeasure,
-            rougeL.precision,
-            rougeL.recall,
+            # rougeL.precision,
+            # rougeL.recall,
             rougeL.fmeasure,
             bleu_score,
         ]
@@ -96,16 +93,19 @@ def compute_rouge(files: Tuple[str, str, str]):
 
 
 if __name__ == "__main__":
+    # https://corejava25hours.com/2024/06/15/9-a-automatic-evaluation-metrics-bleu-rouge-meteor/
+    # nltk.download("punkt_tab")
+
     columns = [
         "File",
-        "ROUGE-1 Precision",
-        "ROUGE-1 Recall",
+        # "ROUGE-1 Precision",
+        # "ROUGE-1 Recall",
         "ROUGE-1 F-Measure",
-        "ROUGE-2 Precision",
-        "ROUGE-2 Recall",
+        # "ROUGE-2 Precision",
+        # "ROUGE-2 Recall",
         "ROUGE-2 F-Measure",
-        "ROUGE-L Precision",
-        "ROUGE-L Recall",
+        # "ROUGE-L Precision",
+        # "ROUGE-L Recall",
         "ROUGE-L F-Measure",
         "BLEU Score",
     ]
