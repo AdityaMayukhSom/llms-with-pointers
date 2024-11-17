@@ -33,9 +33,11 @@ def compute_rouge(files: Tuple[str, str, str]):
     scorer = rouge_scorer.RougeScorer(rouge_types=rouge_types, use_stemmer=True)
 
     base_dir = files[0]
-    abs_file_path = os.path.abspath(os.path.join(base_dir, files[1]))
-    ori_file_path = os.path.abspath(os.path.join(base_dir, files[2]))
-    invalid_result = [abs_file_path] + [-1] * 8
+    abs_file_name = files[1]
+    ori_file_name = files[2]
+    abs_file_path = os.path.abspath(os.path.join(base_dir, abs_file_name))
+    ori_file_path = os.path.abspath(os.path.join(base_dir, ori_file_name))
+    invalid_result = [abs_file_name] + [-1] * 8
 
     try:
         abs_file = open(abs_file_path, "r", encoding="UTF-8")
@@ -60,7 +62,7 @@ def compute_rouge(files: Tuple[str, str, str]):
         rougeL = scores["rougeL"]
 
         return [
-            abs_file_path,
+            abs_file_name,
             rouge1.precision,
             rouge1.recall,
             rouge1.fmeasure,
@@ -90,10 +92,13 @@ if __name__ == "__main__":
         "ROUGE-L F-Measure",
     ]
 
-    in_dir = "./results_test/generated_v2"
-    out_file = "generated_v2.csv"
+    in_dir = "./results_test"
+    out_file = "./rouge_data/generated_v2.csv"
+    pool_chunk_size = 1024
+
+    os.makedirs(os.path.dirname(out_file), exist_ok=True)
 
     pool = Pool()
-    res = pool.imap(compute_rouge, get_result_files("./results_test/generated_v2"), chunksize=1024)
+    res = pool.imap(compute_rouge, get_result_files(in_dir), chunksize=pool_chunk_size)
     df = pd.DataFrame(res, columns=columns)
-    df.to_csv("generated_v2.csv")
+    df.to_csv(out_file)
