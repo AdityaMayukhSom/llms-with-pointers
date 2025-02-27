@@ -1,13 +1,13 @@
-[tool.black]
-line-length = 120
+[project]
+name = "pointer-generator-llama"
+version = "0.1.0"
+description = "Integrates a pointer generator module on top of Llama to reduce hallicination during summarisation"
+authors = [{ name = "Aditya Mayukh Som", email = "adi.kg2@gmail.com" }]
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = "~= 3.10"
 
 [tool.poetry]
-name = "pointer-generator-llama"
 package-mode = false
-version = "0.1.0"
-description = ""
-authors = ["Aditya Mayukh Som <adi.kg2@gmail.com>"]
-readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "~3.10"
